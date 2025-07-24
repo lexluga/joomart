@@ -13,7 +13,7 @@ var vite_config_default = defineConfig({
     // Make sure this matches your Dockerfile and docker-compose.yml exposed port
     // Crucial for HMR behind a proxy:
     hmr: {
-      host: "crm.local",
+      host: "joomart.local",
       // Use your Nginx domain here
       clientPort: 80
       // Use 80 if Nginx is serving on HTTP, 443 if HTTPS

@@ -15,9 +15,9 @@ export default defineConfig({
 
     // Crucial for HMR behind a proxy:
     hmr: {
-      host: 'crm.local', // Use your Nginx domain here
-      clientPort: 80,    // Use 80 if Nginx is serving on HTTP, 443 if HTTPS
-      // protocol: 'ws', // Defaults to ws, but can explicitly set if needed
+      host: 'joomart.local', // Use your Nginx domain here
+      clientPort: 443,    // Use 80 if Nginx is serving on HTTP, 443 if HTTPS
+      protocol: 'wss', // Defaults to ws, but can explicitly set if needed
     },
   },
 
