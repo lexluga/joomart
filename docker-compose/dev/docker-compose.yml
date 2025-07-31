@@ -2,16 +2,16 @@ services:
   #Nginx Reverse Proxy Server
   webserver:
     image: nginx:stable-alpine
-    container_name: nginx
+    container_name: joomart-nginx
     restart: unless-stopped
     tty: true
     ports:
       - "80:80" # HTTP port for redirection
       - "443:443" # HTTPS port
     volumes:
-      - ./config/nginx:/etc/nginx/conf.d
-      - ./config/nginx/certs:/etc/nginx/certs # Mount the SSL certificates
-      - ./api/public:/var/www/html/public # <--- ADD THIS LINE: Mount Laravel's public directory
+      - ../../config/nginx/dev:/etc/nginx/conf.d:ro # Read-only mount for Nginx configs
+      - ../../config/nginx/certs:/etc/nginx/certs:ro # Mount the SSL certificates
+      - ../../api/public:/var/www/html/public:ro # <--- ADD THIS LINE: Mount Laravel's public directory
     depends_on:
       - api
       - frontend
@@ -25,13 +25,13 @@ services:
       args:
         user: lex
         uid: 1000
-      context: ./dockerfiles
-      dockerfile: laravel.dockerfile
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.api.dev
     image: joomart-api
     container_name: joomart-api
     working_dir: /var/www/html
     volumes:
-      - ./api:/var/www/html
+      - ../../api:/var/www/html
     environment:
       DB_HOST: db
       DB_DATABASE: laravelcrm
@@ -53,14 +53,15 @@ services:
   #Vue Frontend Service
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../dockerfiles/vue.dockerfile
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.frontend.dev
+    image: joomart-frontend
     container_name: joomart-vue-app
     restart: unless-stopped
     tty: true
     working_dir: /app
     volumes:
-      - ./frontend:/app
+      - ../../frontend:/app
       - frontend_node_modules:/app/node_modules
     environment:
       VUE_APP_FRONTEND_URL: http://joomart.local
@@ -75,18 +76,22 @@ services:
   #NextJS Backend Service
   backend:
     build:
-      context: ./backend
-      dockerfile: ../dockerfiles/nextjs.dockerfile
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.backend.dev
+    image: joomart-backend
     container_name: joomart-next-app
     restart: unless-stopped
     working_dir: /app
     volumes:
-      - ./backend:/app
+      - ../../backend:/app
       - backend_node_modules:/app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=https://api.joomart.local
+      - NEXT_PUBLIC_API_URL=https://admin.joomart.local
         # Ensure your Next.js dev server expects the protocol as HTTPS if it's strictly enforced by Nginx
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - SERVICE_NAME=backend
+      - SERVICE_TAGS=dev
+      - NEXT_TELEMETRY_DISABLED=1
       - PORT=5000
     expose:
       - "5000"
@@ -101,7 +106,7 @@ services:
     expose:
       - "3306"
     volumes:
-      - ./config/mysql:/etc/mysql/conf.d
+      - ../../config/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro # Read-only mount for MySQL config
       - crm_mysql_data:/var/lib/mysql
     environment:
       MYSQL_DATABASE: laravelcrm
