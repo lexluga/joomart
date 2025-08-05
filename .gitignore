@@ -17,7 +17,8 @@ dist/
 /frontend/.env
 /backend/.env
 # Don't commit generated certificates
-/config/nginx/certs/ 
+/config/nginx/certs/*.pem
+/config/nginx/certs/*.key 
 /config/mysql/.env.db
 .DS_Store
 npm-debug.log
