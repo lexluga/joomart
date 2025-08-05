@@ -32,6 +32,8 @@ services:
     working_dir: /var/www/html
     volumes:
       - ../../api:/var/www/html
+    env_file:
+      - ../../api/.env
     environment:
       MAILPIT_HOST: mailpit
       REDIS_HOST: redis
@@ -107,8 +109,6 @@ services:
     env_file:
       - ../../config/mysql/.env.db
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
       SERVICE_NAME: mysql
       SERVICE_TAGS: dev
     networks:
@@ -119,11 +119,13 @@ services:
     image: phpmyadmin
     container_name: joomart-pma
     restart: always
+    env_file:
+      - ../../config/mysql/.env.db
     environment:
       PMA_ARBITRARY: 1
-      PMA_HOST: mysql
-      MYSQL_USERNAME: root
-      MYSQL_ROOT_PASSWORD: secret
+      PMA_HOST: db
+      SERVICE_NAME: phpmyadmin
+      SERVICE_TAGS: dev
     ports:
       - 8082:80
     depends_on:
