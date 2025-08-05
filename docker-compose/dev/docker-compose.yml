@@ -33,10 +33,6 @@ services:
     volumes:
       - ../../api:/var/www/html
     environment:
-      DB_HOST: db
-      DB_DATABASE: laravelcrm
-      DB_USERNAME: root
-      DB_PASSWORD: secret
       MAILPIT_HOST: mailpit
       REDIS_HOST: redis
       SERVICE_NAME: api
@@ -107,10 +103,12 @@ services:
       - "3306"
     volumes:
       - ../../config/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro # Read-only mount for MySQL config
-      - crm_mysql_data:/var/lib/mysql
+      - joomart_mysql_data:/var/lib/mysql
+    env_file:
+      - ../../config/mysql/.env.db
     environment:
-      MYSQL_DATABASE: laravelcrm
-      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
       SERVICE_NAME: mysql
       SERVICE_TAGS: dev
     networks:
@@ -143,6 +141,7 @@ services:
     networks:
       - joomart-network
 
+  #Redis Caching Service
   redis:
     image: redis:alpine
     container_name: joomart-redis-cache
@@ -154,7 +153,7 @@ services:
       - joomart-network
 
 volumes:
-  crm_mysql_data:
+  joomart_mysql_data:
   frontend_node_modules:
   backend_node_modules:
 
