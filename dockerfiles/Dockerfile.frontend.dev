@@ -11,20 +11,13 @@ RUN npm install
 
 COPY frontend/. .
 
-# Set the PORT environment variable to 3000 for the Vue development server
-ENV PORT=3000
-
-# Expose port 3000 internally within the Docker network
-EXPOSE 3000
-
-
 CMD ["npm", "run", "dev"]
 
-# # production stage
-# FROM nginx:alpine AS production-stage
+# production stage
+FROM nginx:alpine AS production-stage
 
-# COPY --from=build-stage /app/dist /usr/share/nginx/html
+COPY --from=build-stage /app/dist /usr/share/nginx/html
 
-# EXPOSE 3000
+EXPOSE 3000
 
-# CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx", "-g", "daemon off;"]
