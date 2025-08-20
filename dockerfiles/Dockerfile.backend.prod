@@ -1,32 +1,66 @@
-# using staged builds
-FROM node:slim AS builder
-# make the directory where the project files will be stored
-# set it as the working directory so that we don't need to keep referencing it
+# ============================================
+# Stage 1: The Build Stage
+# This stage installs all dependencies (including dev) and builds the Next.js app.
+# ============================================
+FROM node:alpine AS builder
+
+# Set the working directory inside the container
 WORKDIR /app
-# Copy the package.json file
-COPY package*.json .
-# install project dependencies
+
+# Copy the package.json and package-lock.json first to leverage Docker's layer caching.
+# The source path is relative to the build context, which is the project root.
+COPY backend/package*.json ./
+
+# Install project dependencies
 RUN npm install
-# copy project files 
-COPY . .
-#Run NPM
+
+# Copy all the application source code from the 'backend' directory.
+COPY backend/. .
+
+# Build the Next.js application for production.
+# This command creates the '.next' directory.
 RUN npm run build
 
-# Use a lightweight Node.js base image for running the Next.js app
-FROM node:slim AS production
+# ============================================
+# Stage 2: The Production Stage (Runner)
+# This stage installs only the production dependencies.
+# ============================================
+FROM node:alpine AS runner
 
+# Set the working directory
 WORKDIR /app
 
-# Copy built application from the builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/package.json ./package.json
-# Copy public assets
-COPY --from=builder /app/public ./public 
+# The environment variable is a crucial part of the Next.js production setup.
+ENV NODE_ENV=staging
 
-# Expose port 5000 (Next.js default) internally
+# Copy package.json to install only production dependencies
+COPY backend/package*.json ./
+
+# Install only production dependencies
+RUN npm install --only=production
+
+# ============================================
+# Stage 3: The Final Stage
+# This is the final, lean image. It contains only the built app
+# and the production dependencies.
+# ============================================
+FROM node:alpine AS final
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the .next folder from the 'builder' stage
+COPY --from=builder /app/.next ./.next
+
+# Copy the node_modules from the 'runner' stage
+COPY --from=runner /app/node_modules ./node_modules
+
+# Copy the public assets and package.json
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json ./package.json
+
+# Expose port 3000 (Next.js default) internally
 EXPOSE 5000
 
-CMD ["npm", "run", "dev"]
-
+# The command to start the Next.js application in production mode
+CMD ["npm", "run", "start"]

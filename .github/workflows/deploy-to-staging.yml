@@ -1,0 +1,126 @@
+# .github/workflows/ci-cd.yml
+name: Joomart Monorepo CI/CD Pipeline
+
+# This workflow will run on push to main, or on pull requests to either main or staging.
+# This ensures that all CI steps (building, testing) run for every proposed change.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - staging
+    types:
+      - opened
+      - synchronize
+      - reopened
+  workflow_dispatch:
+
+# Define global environment variables for the workflow
+env:
+  REGISTRY: ghcr.io
+  OWNER: ${{ github.repository_owner }}
+
+jobs:
+  # The 'determine-changes' job identifies which services have been modified
+  # in the current commit or pull request. This is a critical step for
+  # optimizing monorepo CI/CD pipelines.
+  determine-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.check.outputs.services }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history to compare branches
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+
+      - name: Determine affected services
+        id: check
+        run: |
+          AFFECTED_SERVICES=()
+
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            case "$file" in
+              frontend/*)
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " frontend " ]]; then
+                  AFFECTED_SERVICES+=("frontend")
+                fi
+                ;;
+              backend/*)
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " backend " ]]; then
+                  AFFECTED_SERVICES+=("backend")
+                fi
+                ;;
+              api/*)
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " api " ]]; then
+                  AFFECTED_SERVICES+=("api")
+                fi
+                ;;
+            esac
+          done
+
+          # Format the output as a JSON array
+          echo "services=$(echo "${AFFECTED_SERVICES[@]}" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
+
+  # The 'build-and-push' job builds a Docker image for each affected service
+  # and pushes it to the GitHub Container Registry (GHCR).
+  build-and-push:
+    needs: determine-changes
+    # Use the JSON output from the previous job to dynamically define the matrix
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.determine-changes.outputs.services) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }} image
+        uses: docker/build-and-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:buildcache,mode=max
+
+  # The 'deploy-to-staging' job is responsible for deploying the latest images
+  # to your staging environment. It will only run when a pull request is
+  # opened, reopened, or synchronized for the 'staging' branch.
+  deploy-to-staging:
+    needs: build-and-push
+    # This conditional is crucial: only run this deployment step if the
+    # pull request's base branch is 'staging'.
+    if: github.event_name == 'pull_request' && github.base_ref == 'staging'
+    runs-on: self-hosted # This requires a self-hosted runner on your VPS
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy services to staging
+        run: |
+          docker compose -f docker-compose/staging/docker-compose.yml pull
+          docker compose -f docker-compose/staging/docker-compose.yml up -d --remove-orphans
+      - name: Notify deployment success
+        run: |
+          echo "Deployment to staging successful!"

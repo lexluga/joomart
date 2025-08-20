@@ -2,7 +2,6 @@
 FROM node:alpine AS build-stage
 
 WORKDIR /app
-
 # Copy package.json and package-lock.json/yarn.lock from the 'frontend' directory
 # The source path 'frontend/package.json' is relative to the build context (project root)
 COPY frontend/package*.json .

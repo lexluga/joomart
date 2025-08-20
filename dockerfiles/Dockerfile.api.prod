@@ -1,39 +1,109 @@
-FROM php:8.3-fpm
+# ============================================
+# Stage 1: The Build Stage
+# This stage installs Composer dependencies and compiles the application.
+# It includes all the development tools we won't need in the final image.
+# ============================================
+FROM php:8.3-fpm AS builder
 
-# Install system dependencies
+# Install system dependencies necessary for the build process.
+# We'll install a minimal set of extensions in the final stage.
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     zip \
-    unzip
+    unzip \
+    libzip-dev \
+    libonig-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    locales \
+    && rm -rf /var/lib/apt/lists/*
 
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install necessary PHP extensions for the build stage.
+# We can use docker-php-ext-configure for some extensions.
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) gd \
+    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath zip
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql 
-
-# Get latest Composer
+# Copy the composer binary from the composer image.
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-#Arguments defined in docker-compose.yml
+# Set the working directory for the application
+WORKDIR /var/www/html
+
+# Copy application source code.
+# The .dockerignore file should be used to exclude unnecessary files like node_modules.
+COPY . .
+
+# Copy your composer.json and composer.lock to leverage Docker's layer caching.
+# This prevents re-installing dependencies on every code change.
+COPY composer.json composer.lock ./
+
+# Install Composer dependencies, skipping development packages (--no-dev).
+# This is a crucial step for a production-ready image.
+RUN composer install --no-dev --optimize-autoloader
+
+# Run Laravel-specific commands to optimize for production.
+RUN php artisan storage:link \
+    && php artisan optimize:clear \
+    && php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# ============================================
+# Stage 2: The Production Stage
+# This is a lean stage that only contains the production-ready code.
+# It uses a minimal PHP-FPM image and no build tools.
+# ============================================
+FROM php:8.3-fpm-alpine AS production
+
+# Arguments defined in docker-compose.yml for user creation.
 ARG user
 ARG uid
 
-# Create system user to run Composer and Artisan Commands
-RUN useradd -G www-data,root -u $uid -d /home/$user $user
+# Install only the system dependencies and PHP extensions needed at runtime.
+RUN apk add --no-cache \
+    bash \
+    oniguruma-dev \
+    libzip-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libwebp-dev \
+    freetype-dev \
+    && docker-php-ext-install -j$(nproc) \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    exif \
+    zip \
+    pcntl \
+    bcmath \
+    gd \
+    && rm -rf /var/lib/apt/lists/*
 
-#Set Permissions
-RUN mkdir -p /home/$user/.composer && \
-    chown -R $user:$user /home/$user
+# Create system user to run the application for better security.
+RUN addgroup -g 1000 -S $user && adduser -u $uid -S -G $user -D $user
 
-# Set working directory
+# Set working directory.
 WORKDIR /var/www/html
 
-#Set User
+# Copy the application code from the 'builder' stage.
+# This includes the vendor directory with all the dependencies.
+COPY --from=builder /var/www/html .
+
+# Set permissions for storage and cache directories.
+RUN chown -R $user:$user /var/www/html \
+    && chown -R www-data:www-data /var/www/html/storage \
+    && chown -R www-data:www-data /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
+
+# Set the user to the newly created non-root user.
 USER $user
 
-# Expose port 9000 and start php-fpm server (for FastCGI Process Manager)
+# Expose port 9000 for PHP-FPM.
 EXPOSE 9000
 
+# The command to start the PHP-FPM server.
 CMD ["php-fpm"]
