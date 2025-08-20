@@ -46,19 +46,23 @@ jobs:
           AFFECTED_API=FALSE
           AFFECTED_BACKEND=FALSE
 
-          for file in ${{ steps.changed-files.outputs.files }}: do
-              if [[ "$file" == "frontend/"* ]]: then 
-                  AFFECTED_FRONTEND=TRUE
-              elif [[ "$file" == "api/"* ]]; then
-                  AFFECTED_API=TRUE
-              elif [[ "$file" == "backend/"* ]]; then
-                  AFFECTED_BACKEND=TRUE
-              fi
-          done }}
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            case "$file" in
+              frontend/*)
+                AFFECTED_FRONTEND=true
+                ;;
+              backend/*)
+                AFFECTED_BACKEND=true
+                ;;
+              api/*)
+                AFFECTED_API=true
+                ;;
+            esac
+          done
 
-          echo "frontend=$AFFECTED_FRONTEND" >> $GITHUB_OUTPUTS
-          echo "api=$AFFECTED_API" >> $GITHUB_OUTPUTS
-          echo "backend=$AFFECTED_BACKEND" >> $GITHUB_OUTPUTS
+          echo "frontend=$AFFECTED_FRONTEND" >> $GITHUB_OUTPUT
+          echo "backend=$AFFECTED_BACKEND" >> $GITHUB_OUTPUT
+          echo "api=$AFFECTED_API" >> $GITHUB_OUTPUT
 
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
