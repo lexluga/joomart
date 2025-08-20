@@ -1,5 +1,5 @@
 # .github/workflows/ci-cd.yml
-name: Joomart Monorepo CI/CD Pipeline
+name: Joomart Monorepo Staging CI/CD Pipeline
 
 # This workflow will run on push to main, or on pull requests to either main or staging.
 # This ensures that all CI steps (building, testing) run for every proposed change.
