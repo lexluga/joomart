@@ -1,5 +1,8 @@
+# .github/workflows/ci-cd.yml
 name: Joomart Monorepo CI/CD Pipeline
 
+# This workflow will run on push to main, or on pull requests to either main or staging.
+# This ensures that all CI steps (building, testing) run for every proposed change.
 on:
   push:
     branches:
@@ -14,7 +17,7 @@ on:
       - reopened
   workflow_dispatch:
 
-# Definiation of environments variables for the workflow
+# Define global environment variables for the workflow
 env:
   REGISTRY: ghcr.io
   OWNER: ${{ github.repository_owner }}
@@ -26,59 +29,56 @@ jobs:
   determine-changes:
     runs-on: ubuntu-latest
     outputs:
-      frontend: ${{ steps.check.outputs.frontend }}
-      api: ${{ steps.check.outputs.api }}
-      backend: ${{ steps.check.outputs.backend }}
+      services: ${{ steps.check.outputs.services }}
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Fetch all history to compare branches
 
-      - name: Get Changed Files
+      - name: Get changed files
         id: changed-files
         uses: tj-actions/changed-files@v44
 
-      - name: Determine Affected Changes from changed files
+      - name: Determine affected services
         id: check
         run: |
-          AFFECTED_FRONTEND=FALSE
-          AFFECTED_API=FALSE
-          AFFECTED_BACKEND=FALSE
+          AFFECTED_SERVICES=()
 
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
             case "$file" in
               frontend/*)
-                AFFECTED_FRONTEND=true
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " frontend " ]]; then
+                  AFFECTED_SERVICES+=("frontend")
+                fi
                 ;;
               backend/*)
-                AFFECTED_BACKEND=true
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " backend " ]]; then
+                  AFFECTED_SERVICES+=("backend")
+                fi
                 ;;
               api/*)
-                AFFECTED_API=true
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " api " ]]; then
+                  AFFECTED_SERVICES+=("api")
+                fi
                 ;;
             esac
           done
 
-          echo "frontend=$AFFECTED_FRONTEND" >> $GITHUB_OUTPUT
-          echo "backend=$AFFECTED_BACKEND" >> $GITHUB_OUTPUT
-          echo "api=$AFFECTED_API" >> $GITHUB_OUTPUT
+          # Format the output as a JSON array
+          echo "services=$(echo "${AFFECTED_SERVICES[@]}" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
 
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
   build-and-push:
     needs: determine-changes
-    if: needs.determine-changes.outputs.frontend == 'true' || needs.determine-changes.outputs.api == 'true' || needs.determine-changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
-        service:
-          - api
-          - frontend
-          - backend
-
+        service: ${{ fromJson(needs.determine-changes.outputs.services) }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
@@ -91,35 +91,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push ${{ matrix.service }} Image
-        # This conditional ensures the job only runs for services that were actually changed.
-        if: success() && fromJson(needs.determine-changes.outputs[matrix.service])
-        uses: docker/build-push-action@v5
+      - name: Build and push ${{ matrix.service }} image
+        uses: docker/build-and-push-action@v5
         with:
-          context: ./${{ matrix.service }} image
+          context: ./${{ matrix.service }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest
-          # Use BuildKit to cache layers in the registry
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:cache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:cache,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:buildcache,mode=max
 
   # The 'deploy-to-staging' job is responsible for deploying the latest images
   # to your staging environment. It will only run when a pull request is
   # opened, reopened, or synchronized for the 'staging' branch.
   deploy-to-staging:
     needs: build-and-push
+    # This conditional is crucial: only run this deployment step if the
+    # pull request's base branch is 'staging'.
     if: github.event_name == 'pull_request' && github.base_ref == 'staging'
-    runs-on: self-hosted
+    runs-on: self-hosted # This requires a self-hosted runner on your VPS
     steps:
-      - name: Log in to GitHub Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy to Staging
+      - name: Deploy services to staging
         run: |
-          docker compose -f docker-compose/staging/docker-compose.yml down
           docker compose -f docker-compose/staging/docker-compose.yml pull
           docker compose -f docker-compose/staging/docker-compose.yml up -d --remove-orphans
+      - name: Notify deployment success
+        run: |
+          echo "Deployment to staging successful!"
