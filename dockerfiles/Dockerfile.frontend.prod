@@ -1,28 +1,45 @@
-# build stage
-FROM node:slim AS build-stage
+# ============================================
+# Stage 1: The Build Stage
+# This stage is for compiling the Vue.js application.
+# It will have all the necessary Node.js tools and dependencies.
+# ============================================
+FROM node:alpine AS build-stage
 
+# Set the working directory inside the container
 WORKDIR /app
 
-COPY package*.json .
+# Copy package.json and package-lock.json first to leverage Docker's layer caching.
+# This ensures that 'npm install' is not re-run on every code change.
+COPY package*.json ./
 
+# Install project dependencies
 RUN npm install
 
+# Copy all the application source code
 COPY . .
 
-# Set the PORT environment variable to 3000 for the Vue development server
-ENV PORT=3000
+# Build the Vue.js application for production
+# This command creates the 'dist' folder with static HTML, CSS, and JS files.
+RUN npm run build
 
-# Expose port 3000 internally within the Docker network
-EXPOSE 3000
+# ============================================
+# Stage 2: The Production Stage
+# This stage is for serving the built application.
+# It is very lean and only contains Nginx and the static files.
+# ============================================
+FROM nginx:stable-alpine AS production-stage
 
+# Copy the custom Nginx configuration file from your local directory
+# to the Nginx container's configuration path.
+COPY config/nginx/staging/staging.joomart.xyz.conf /etc/nginx/conf.d/default.conf
 
-CMD ["npm", "run", "dev"]
+# Copy the built files from the 'build-stage' into the Nginx server's
+# default public directory. This is the crucial step of the multi-stage build.
+COPY --from=build-stage /app/dist /usr/share/nginx/html
 
-# # production stage
-# FROM nginx:alpine AS production-stage
+# Expose port 80 for standard HTTP traffic
+EXPOSE 80
 
-# COPY --from=build-stage /app/dist /usr/share/nginx/html
-
-# EXPOSE 3000
-
-# CMD ["nginx", "-g", "daemon off;"]
+# The CMD command runs Nginx in the foreground,
+# which is required for the Docker container to stay running.
+CMD ["nginx", "-g", "daemon off;"]
