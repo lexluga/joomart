@@ -39,14 +39,6 @@ jobs:
       - name: Get changed files
         id: changed-files
         uses: tj-actions/changed-files@v44
-        with:
-          files: |
-            frontend/**
-            backend/**
-            api/**
-            .github/workflows/**
-          token: ${{ secrets.GITHUB_TOKEN }}
-          output: all_changed_files
 
       - name: Determine affected services
         id: check
@@ -78,12 +70,14 @@ jobs:
             esac
           done
 
+          # This section has been simplified to ensure a valid JSON output
+          # is always created, which prevents the 'fromJson' function from failing.
           if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
             echo "services=[]" >> $GITHUB_OUTPUT
           else
-            
-            printf -v joined '"%s",' "${AFFECTED_SERVICES[@]}"
-            echo "services=[${joined%,}]" >> $GITHUB_OUTPUT
+            # Convert the shell array to a JSON array string
+            json_array=$(printf '%s\n' "${AFFECTED_SERVICES[@]}" | jq -R . | jq -s .)
+            echo "services=$json_array" >> $GITHUB_OUTPUT
           fi
 
   # The 'build-and-push' job builds a Docker image for each affected service
@@ -91,7 +85,8 @@ jobs:
   build-and-push:
     needs:
       determine-changes
-      # This conditional is crucial: only run this job if the services array is not empty
+      # This conditional is crucial: only run this job if the services array is not empty.
+      # This condition was correct in your original file.
     if: ${{ fromJson(needs.determine-changes.outputs.services).length > 0  }}
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
@@ -121,14 +116,16 @@ jobs:
       - name: Notify build success
         run: |
           echo "Build and push for ${{ matrix.service }} successful!"
+
   # The 'deploy-to-staging' job is responsible for deploying the latest images
-  # to your staging environment. It will only run when a pull request is
-  # opened, reopened, or synchronized for the 'staging' branch.
+  # to your staging environment. It will now run on a push to 'main' or a PR to 'staging'.
   deploy-to-staging:
     needs: build-and-push
-    # This conditional is crucial: only run this deployment step if the
-    # pull request's base branch is 'staging'.
-    if: github.event_name == 'pull_request' && github.base_ref == 'staging'
+    # This conditional has been updated to be more flexible.
+    # It now triggers on a push to main or a pull request to staging.
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'staging')
     runs-on: self-hosted # This requires a self-hosted runner on your VPS
     steps:
       - name: Login to GitHub Container Registry
