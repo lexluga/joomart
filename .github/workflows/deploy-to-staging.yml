@@ -60,48 +60,23 @@ jobs:
                   AFFECTED_SERVICES+=("api")
                 fi
                 ;;
+              .github/workflows/*)
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " workflows " ]]; then
+                  AFFECTED_SERVICES+=("workflows")
+                fi
+                ;;
             esac
           done
 
-          function to_json() {
-            local array=("$@")
-            local json_string="["
-            local first=true
-            for item in "${array[@]}"; do
-              if [ "$first" = true ]; then
-                first=false
-              else
-                json_string+=","
-              fi
-              json_string+="\"$item\""
-            done
-            json_string+="]"
-            echo "$json_string"
-          }
 
-          if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
-            echo "services=[]" >> $GITHUB_OUTPUT
-            echo "buildable_services=[]" >> $GITHUB_OUTPUT
-          else
-            services_json=$(to_json "${AFFECTED_SERVICES[@]}")
-            echo "services=$services_json" >> $GITHUB_OUTPUT
-
-            BUILDABLE_SERVICES=()
-            for service in "${AFFECTED_SERVICES[@]}"; do
-              if [[ "$service" != "workflows" ]]; then
-                BUILDABLE_SERVICES+=("$service")
-              fi
-            done
-            buildable_json=$(to_json "${BUILDABLE_SERVICES[@]}")
-            echo "buildable_services=$buildable_json" >> $GITHUB_OUTPUT
-          fi
+          echo "services=$(echo "${AFFECTED_SERVICES[@]}" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
   build-and-push:
     needs:
       determine-changes
       # This conditional is crucial: only run this job if the services array is not empty
-    if: ${{ needs.determine-changes.outputs.services != '[]' }}
+    if: ${{ needs.determine-changes.outputs.services }}
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
@@ -127,6 +102,8 @@ jobs:
           context: ./${{ matrix.service }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest
+          cache-from: type=ghash
+          cache-to: type=gha,mode=max
       - name: Notify build success
         run: |
           echo "Build and push for ${{ matrix.service }} successful!"
