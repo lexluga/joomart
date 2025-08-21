@@ -133,7 +133,10 @@ jobs:
       - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.service }}
+          # The context is the root of the monorepo
+          context: .
+          # The file is the specific Dockerfile in the dockerfiles/ directory
+          file: ./dockerfiles/Dockerfile.${{ matrix.service }}.prod
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest
       - name: Notify build success
