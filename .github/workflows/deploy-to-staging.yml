@@ -1,3 +1,4 @@
+# .github/workflows/ci-cd.yml
 name: Joomart Monorepo Staging CI/CD Pipeline
 
 # This workflow will run on push to main, or on pull requests to either main or staging.
@@ -45,6 +46,7 @@ jobs:
         id: check
         run: |
           AFFECTED_SERVICES=()
+
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
             case "$file" in
               frontend/*)
@@ -69,7 +71,6 @@ jobs:
                 ;;
             esac
           done
-
 
           # Use a loop to manually build a valid JSON string, preventing
           # any unwanted characters or spacing.
@@ -107,16 +108,17 @@ jobs:
             buildable_json=$(to_json "${BUILDABLE_SERVICES[@]}")
             echo "buildable_services=$buildable_json" >> $GITHUB_OUTPUT
           fi
+
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
   build-and-push:
-    needs:
-      determine-changes
-      # This conditional is crucial: only run this job if the services array is not empty
+    needs: determine-changes
+    # This conditional is crucial: only run this job if the buildable services array is not empty
     if: ${{ fromJson(needs.determine-changes.outputs.buildable_services).length > 0  }}
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
+        # We now use the filtered list of services that are actually buildable.
         service: ${{ fromJson(needs.determine-changes.outputs.buildable_services) }}
     runs-on: ubuntu-latest
     steps:
@@ -133,25 +135,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-          # This new step explicitly sets the full Docker tag as an output variable
-
       - name: Build and push ${{ matrix.service }} image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./${{ matrix.service }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest
-          cache-from: type=ghash
-          cache-to: type=gha,mode=max
       - name: Notify build success
         run: |
           echo "Build and push for ${{ matrix.service }} successful!"
 
+  # The 'deploy-to-staging' job is responsible for deploying the latest images
+  # to your staging environment. It will now run on a push to 'main' or a PR to 'staging'.
   deploy-to-staging:
     needs: build-and-push
-    # This conditional is crucial: only run this deployment step if the
-    # pull request's base branch is 'staging'.
-    if: github.event_name == 'pull_request' && github.base_ref == 'staging'
+    # This conditional has been updated to be more flexible.
+    # It now triggers on a push to main or a pull request to staging.
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'staging')
     runs-on: self-hosted # This requires a self-hosted runner on your VPS
     steps:
       - name: Login to GitHub Container Registry
