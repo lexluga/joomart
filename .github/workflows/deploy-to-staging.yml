@@ -69,7 +69,42 @@ jobs:
           done
 
 
-          echo "services=$(echo "${AFFECTED_SERVICES[@]}" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
+          # Use a loop to manually build a valid JSON string, preventing
+          # any unwanted characters or spacing.
+          function to_json() {
+            local array=("$@")
+            local json_string="["
+            local first=true
+            for item in "${array[@]}"; do
+              # This is the crucial fix: trim any whitespace
+              trimmed_item=$(echo "$item" | xargs)
+              if [ "$first" = true ]; then
+                first=false
+              else
+                json_string+=","
+              fi
+              json_string+="\"$trimmed_item\""
+            done
+            json_string+="]"
+            echo "$json_string"
+          }
+
+          if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
+            echo "services=[]" >> $GITHUB_OUTPUT
+            echo "buildable_services=[]" >> $GITHUB_OUTPUT
+          else
+            services_json=$(to_json "${AFFECTED_SERVICES[@]}")
+            echo "services=$services_json" >> $GITHUB_OUTPUT
+
+            BUILDABLE_SERVICES=()
+            for service in "${AFFECTED_SERVICES[@]}"; do
+              if [[ "$service" != "workflows" ]]; then
+                BUILDABLE_SERVICES+=("$service")
+              fi
+            done
+            buildable_json=$(to_json "${BUILDABLE_SERVICES[@]}")
+            echo "buildable_services=$buildable_json" >> $GITHUB_OUTPUT
+          fi
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
   build-and-push:
@@ -97,9 +132,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
           # This new step explicitly sets the full Docker tag as an output variable
-      - name: Prepare Docker tag
-        id: docker_tag
-        run: echo "tag=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest" >> $GITHUB_OUTPUT
+
       - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
