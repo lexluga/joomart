@@ -70,12 +70,9 @@ jobs:
             esac
           done
 
-          # This section has been simplified to ensure a valid JSON output
-          # is always created, which prevents the 'fromJson' function from failing.
           if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
             echo "services=[]" >> $GITHUB_OUTPUT
           else
-            # Convert the shell array to a JSON array string
             json_array=$(printf '%s\n' "${AFFECTED_SERVICES[@]}" | jq -R . | jq -s .)
             echo "services=$json_array" >> $GITHUB_OUTPUT
           fi
