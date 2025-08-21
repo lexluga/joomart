@@ -78,7 +78,7 @@ jobs:
             echo "services=[]" >> $GITHUB_OUTPUT
             echo "buildable_services=[]" >> $GITHUB_OUTPUT
           else
-            # Convert the shell array to a JSON array string
+            # Convert the shell array to a JSON array string using jq
             json_array=$(printf '%s\n' "${AFFECTED_SERVICES[@]}" | jq -R . | jq -s .)
             echo "services=$json_array" >> $GITHUB_OUTPUT
 
