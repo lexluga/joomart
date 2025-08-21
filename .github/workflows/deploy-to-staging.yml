@@ -72,25 +72,39 @@ jobs:
             esac
           done
 
-          # This section has been simplified to ensure a valid JSON output
-          # is always created, which prevents the 'fromJson' function from failing.
+          # Use a loop to manually build a valid JSON string, preventing
+          # any unwanted characters or spacing.
+          function to_json() {
+            local array=("$@")
+            local json_string="["
+            local first=true
+            for item in "${array[@]}"; do
+              if [ "$first" = true ]; then
+                first=false
+              else
+                json_string+=","
+              fi
+              json_string+="\"$item\""
+            done
+            json_string+="]"
+            echo "$json_string"
+          }
+
           if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
             echo "services=[]" >> $GITHUB_OUTPUT
             echo "buildable_services=[]" >> $GITHUB_OUTPUT
           else
-            # Convert the shell array to a JSON array string using jq
-            json_array=$(printf '%s\n' "${AFFECTED_SERVICES[@]}" | jq -R . | jq -s .)
-            echo "services=$json_array" >> $GITHUB_OUTPUT
+            services_json=$(to_json "${AFFECTED_SERVICES[@]}")
+            echo "services=$services_json" >> $GITHUB_OUTPUT
 
-            # Filter out the 'workflows' service for the build matrix
             BUILDABLE_SERVICES=()
             for service in "${AFFECTED_SERVICES[@]}"; do
               if [[ "$service" != "workflows" ]]; then
                 BUILDABLE_SERVICES+=("$service")
               fi
             done
-            buildable_json_array=$(printf '%s\n' "${BUILDABLE_SERVICES[@]}" | jq -R . | jq -s .)
-            echo "buildable_services=$buildable_json_array" >> $GITHUB_OUTPUT
+            buildable_json=$(to_json "${BUILDABLE_SERVICES[@]}")
+            echo "buildable_services=$buildable_json" >> $GITHUB_OUTPUT
           fi
 
   # The 'build-and-push' job builds a Docker image for each affected service
