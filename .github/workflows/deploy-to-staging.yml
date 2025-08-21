@@ -97,9 +97,6 @@ jobs:
           context: ./${{ matrix.service }}
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest
-          cache-from: type=registry,ref=ghcr.io/lexluga/buildcache
-          cache-to: type=registry,ref=ghcr.io/lexluga/buildcache,mode=max
-
   # The 'deploy-to-staging' job is responsible for deploying the latest images
   # to your staging environment. It will only run when a pull request is
   # opened, reopened, or synchronized for the 'staging' branch.
