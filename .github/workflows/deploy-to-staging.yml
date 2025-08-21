@@ -73,7 +73,7 @@ jobs:
     needs:
       determine-changes
       # This conditional is crucial: only run this job if the services array is not empty
-    if: ${{ needs.determine-changes.outputs.services != '[]' }}
+    if: ${{ fromJson(needs.determine-changes.outputs.services).length > 0  }}
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
