@@ -62,6 +62,11 @@ jobs:
                   AFFECTED_SERVICES+=("api")
                 fi
                 ;;
+              .github/workflows/*)
+                if [[ ! " ${AFFECTED_SERVICES[@]} " =~ " workflows " ]]; then
+                  AFFECTED_SERVICES+=("workflows")
+                fi
+                ;;
             esac
           done
 
