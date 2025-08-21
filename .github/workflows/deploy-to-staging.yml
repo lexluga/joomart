@@ -67,11 +67,13 @@ jobs:
 
           # Format the output as a JSON array
           echo "services=$(echo "${AFFECTED_SERVICES[@]}" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
-
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
   build-and-push:
-    needs: determine-changes
+    needs:
+      determine-changes
+      # This conditional is crucial: only run this job if the services array is not empty
+    if: ${{ needs.determine-changes.outputs.services != '[]' }}
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
