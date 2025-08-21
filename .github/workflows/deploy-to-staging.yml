@@ -154,6 +154,10 @@ jobs:
       (github.event_name == 'pull_request' && github.base_ref == 'staging')
     runs-on: self-hosted # This requires a self-hosted runner on your VPS
     steps:
+      - name: Checkout code
+        # You need to checkout the code again here so it's available in the self-hosted runner
+        uses: actions/checkout@v4
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -162,10 +166,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy services to staging
+        # Tell the step to run from the root of the repository
+        working-directory: ${{ github.workspace }}
         run: |
-          # Use an absolute path to the docker-compose file
-          docker compose -f ${{ github.workspace }}/docker-compose/staging/docker-compose.yml pull
-          docker compose -f ${{ github.workspace }}/docker-compose/staging/docker-compose.yml up -d --remove-orphans
+          docker compose -f docker-compose/staging/docker-compose.yml pull
+          docker compose -f docker-compose/staging/docker-compose.yml up -d --remove-orphans
       - name: Notify deployment success
         run: |
           echo "Deployment to staging successful!"
