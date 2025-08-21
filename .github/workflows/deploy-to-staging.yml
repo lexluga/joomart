@@ -29,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       services: ${{ steps.check.outputs.services }}
+      # New output specifically for the services that need to be built
+      buildable_services: ${{ steps.check.outputs.buildable_services }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -111,11 +113,11 @@ jobs:
     needs:
       determine-changes
       # This conditional is crucial: only run this job if the services array is not empty
-    if: ${{ needs.determine-changes.outputs.services }}
+    if: ${{ fromJson(needs.determine-changes.outputs.buildable_services).length > 0  }}
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
-        service: ${{ fromJson(needs.determine-changes.outputs.services) }}
+        service: ${{ fromJson(needs.determine-changes.outputs.buildable_services) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
