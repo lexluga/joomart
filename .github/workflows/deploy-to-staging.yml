@@ -1,4 +1,4 @@
-# .github/workflows/ci-cd.yml
+# .github/workflows/deploy-to-staging.yml
 name: Joomart Monorepo Staging CI/CD Pipeline
 
 # This workflow will run on push to main, or on pull requests to either main or staging.
@@ -72,42 +72,36 @@ jobs:
             esac
           done
 
-          # Use a loop to manually build a valid JSON string, preventing
-          # any unwanted characters or spacing.
-          function to_json() {
-            local array=("$@")
-            local json_string="["
-            local first=true
-            for item in "${array[@]}"; do
-              # This is the crucial fix: trim any whitespace
-              trimmed_item=$(echo "$item" | xargs)
-              if [ "$first" = true ]; then
-                first=false
-              else
-                json_string+=","
-              fi
-              json_string+="\"$trimmed_item\""
-            done
-            json_string+="]"
-            echo "$json_string"
-          }
+          # Manually build the JSON strings to ensure there is no extra whitespace.
+          # This is the most reliable method for this type of task.
+          services_string=""
+          buildable_string=""
 
-          if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
+          if [ ${#AFFECTED_SERVICES[@]} -gt 0 ]; then
+            for service in "${AFFECTED_SERVICES[@]}"; do
+              if [ -n "$services_string" ]; then
+                services_string+=","
+              fi
+              services_string+="\"$service\""
+
+              if [[ "$service" != "workflows" ]]; then
+                if [ -n "$buildable_string" ]; then
+                  buildable_string+=","
+                fi
+                buildable_string+="\"$service\""
+              fi
+            done
+            
+            echo "services=[$services_string]" >> $GITHUB_OUTPUT
+            echo "buildable_services=[$buildable_string]" >> $GITHUB_OUTPUT
+          else
             echo "services=[]" >> $GITHUB_OUTPUT
             echo "buildable_services=[]" >> $GITHUB_OUTPUT
-          else
-            services_json=$(to_json "${AFFECTED_SERVICES[@]}")
-            echo "services=$services_json" >> $GITHUB_OUTPUT
-
-            BUILDABLE_SERVICES=()
-            for service in "${AFFECTED_SERVICES[@]}"; do
-              if [[ "$service" != "workflows" ]]; then
-                BUILDABLE_SERVICES+=("$service")
-              fi
-            done
-            buildable_json=$(to_json "${BUILDABLE_SERVICES[@]}")
-            echo "buildable_services=$buildable_json" >> $GITHUB_OUTPUT
           fi
+
+          # This step is for debugging and will show the exact output in your job logs
+          echo "Debug: services output is [$services_string]"
+          echo "Debug: buildable_services output is [$buildable_string]"
 
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
