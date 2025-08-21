@@ -163,8 +163,9 @@ jobs:
 
       - name: Deploy services to staging
         run: |
-          docker compose -f docker-compose/staging/docker-compose.yml pull
-          docker compose -f docker-compose/staging/docker-compose.yml up -d --remove-orphans
+          # Use an absolute path to the docker-compose file
+          docker compose -f ${{ github.workspace }}/docker-compose/staging/docker-compose.yml pull
+          docker compose -f ${{ github.workspace }}/docker-compose/staging/docker-compose.yml up -d --remove-orphans
       - name: Notify deployment success
         run: |
           echo "Deployment to staging successful!"
