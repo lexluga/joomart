@@ -10,7 +10,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::prefix('auth')->group(function (){
+//Test comments to rigger Workflow
+
+Route::prefix('auth')->group(function () {
     Route::post('/register', RegisterController::class)->middleware('guest');
     Route::post('/login', LoginController::class)->middleware('guest');
     Route::post('/logout', LogoutController::class)->middleware('auth:sanctum');
