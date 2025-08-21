@@ -30,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       services: ${{ steps.check.outputs.services }}
+      # New output specifically for the services that need to be built
+      buildable_services: ${{ steps.check.outputs.buildable_services }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -70,25 +72,38 @@ jobs:
             esac
           done
 
+          # This section has been simplified to ensure a valid JSON output
+          # is always created, which prevents the 'fromJson' function from failing.
           if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
             echo "services=[]" >> $GITHUB_OUTPUT
+            echo "buildable_services=[]" >> $GITHUB_OUTPUT
           else
-            
-            printf -v joined '"%s",' "${AFFECTED_SERVICES[@]}"
-            echo "services=[${joined%,}]" >> $GITHUB_OUTPUT
+            # Convert the shell array to a JSON array string
+            json_array=$(printf '%s\n' "${AFFECTED_SERVICES[@]}" | jq -R . | jq -s .)
+            echo "services=$json_array" >> $GITHUB_OUTPUT
+
+            # Filter out the 'workflows' service for the build matrix
+            BUILDABLE_SERVICES=()
+            for service in "${AFFECTED_SERVICES[@]}"; do
+              if [[ "$service" != "workflows" ]]; then
+                BUILDABLE_SERVICES+=("$service")
+              fi
+            done
+            buildable_json_array=$(printf '%s\n' "${BUILDABLE_SERVICES[@]}" | jq -R . | jq -s .)
+            echo "buildable_services=$buildable_json_array" >> $GITHUB_OUTPUT
           fi
 
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
   build-and-push:
-    needs:
-      determine-changes
-      # This conditional is crucial: only run this job if the services array is not empty
-    if: ${{ fromJson(needs.determine-changes.outputs.services).length > 0  }}
+    needs: determine-changes
+    # This conditional is crucial: only run this job if the buildable services array is not empty
+    if: ${{ fromJson(needs.determine-changes.outputs.buildable_services).length > 0  }}
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
-        service: ${{ fromJson(needs.determine-changes.outputs.services) }}
+        # We now use the filtered list of services that are actually buildable.
+        service: ${{ fromJson(needs.determine-changes.outputs.buildable_services) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -113,14 +128,16 @@ jobs:
       - name: Notify build success
         run: |
           echo "Build and push for ${{ matrix.service }} successful!"
+
   # The 'deploy-to-staging' job is responsible for deploying the latest images
-  # to your staging environment. It will only run when a pull request is
-  # opened, reopened, or synchronized for the 'staging' branch.
+  # to your staging environment. It will now run on a push to 'main' or a PR to 'staging'.
   deploy-to-staging:
     needs: build-and-push
-    # This conditional is crucial: only run this deployment step if the
-    # pull request's base branch is 'staging'.
-    if: github.event_name == 'pull_request' && github.base_ref == 'staging'
+    # This conditional has been updated to be more flexible.
+    # It now triggers on a push to main or a pull request to staging.
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'staging')
     runs-on: self-hosted # This requires a self-hosted runner on your VPS
     steps:
       - name: Login to GitHub Container Registry
