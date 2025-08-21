@@ -108,7 +108,8 @@ jobs:
   build-and-push:
     needs: determine-changes
     # This conditional is crucial: only run this job if the buildable services array is not empty
-    if: ${{ fromJson(needs.determine-changes.outputs.buildable_services).length > 0  }}
+    # Use a direct string comparison to avoid potential parsing issues
+    if: needs.determine-changes.outputs.buildable_services != '[]'
     # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
