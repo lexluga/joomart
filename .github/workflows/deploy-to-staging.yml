@@ -65,8 +65,15 @@ jobs:
             esac
           done
 
-          # Format the output as a JSON array
-          echo "services=$(echo "${AFFECTED_SERVICES[@]}" | jq -R -s -c 'split(" ")')" >> $GITHUB_OUTPUT
+
+          if [ ${#AFFECTED_SERVICES[@]} -eq 0 ]; then
+            echo "services=[]" >> $GITHUB_OUTPUT
+          else
+            
+            printf -v joined '"%s",' "${AFFECTED_SERVICES[@]}"
+            echo "services=[${joined%,}]" >> $GITHUB_OUTPUT
+          fi
+
   # The 'build-and-push' job builds a Docker image for each affected service
   # and pushes it to the GitHub Container Registry (GHCR).
   build-and-push:
@@ -94,7 +101,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.service }} image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./${{ matrix.service }}
           push: true
