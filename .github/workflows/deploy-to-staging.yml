@@ -96,6 +96,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+          # This new step explicitly sets the full Docker tag as an output variable
+      - name: Prepare Docker tag
+        id: docker_tag
+        run: echo "tag=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest" >> $GITHUB_OUTPUT
       - name: Build and push ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
@@ -107,9 +111,7 @@ jobs:
       - name: Notify build success
         run: |
           echo "Build and push for ${{ matrix.service }} successful!"
-  # The 'deploy-to-staging' job is responsible for deploying the latest images
-  # to your staging environment. It will only run when a pull request is
-  # opened, reopened, or synchronized for the 'staging' branch.
+
   deploy-to-staging:
     needs: build-and-push
     # This conditional is crucial: only run this deployment step if the
