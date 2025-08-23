@@ -1,15 +1,16 @@
-# ============================================
-# Stage 1: The Build Stage
-# This stage installs Composer dependencies and compiles the application.
-# It includes all the development tools we won't need in the final image.
-# ============================================
+# File: dockerfiles/Dockerfile.api.prod
+
+############################################################
+# Stage 1: Builder
+# This stage installs all dependencies, including dev dependencies,
+# and builds the application. It uses a larger base image.
+############################################################
 FROM php:8.3-fpm-alpine AS builder
 
-# Set the working directory for the application
+# Set the working directory inside the container
 WORKDIR /var/www/html
 
 # Create a non-root user and group for security
-# The 'adduser' command in Alpine automatically creates a group with the same name.
 ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
@@ -23,41 +24,26 @@ RUN apk add --no-cache \
     unzip 
 
 # Install PHP extensions
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql 
+RUN docker-php-ext-install pdo pdo_mysql    
 
-# Copy the composer binary from the composer image.
+# Copy composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy the entire application source code
+# EXPLICIT COPY: Copy the .env.example file
+COPY ./api/.env.example /var/www/html/.env.example
+
+# Copy the rest of the application source code
 COPY ./api/ /var/www/html/
 
-# ADDED: Explicitly copy .env.example to ensure it's present.
-COPY api/.env.example /var/www/html/.env.example
+# Install ALL composer dependencies.
+RUN composer install --optimize-autoloader --no-scripts --no-plugins
 
-# Copy your composer.json and composer.lock to leverage Docker's layer caching.
-# This prevents re-installing dependencies on every code change.
-COPY api/composer.json api/composer.lock ./
-
-# Install Composer dependencies, skipping development packages (--no-dev).
-# This is a crucial step for a production-ready image.
-RUN composer install --no-dev --optimize-autoloader --no-scripts --no-plugins
-
-# FIX: Copy .env.example to .env so key:generate has a file to write to.
-# This ensures the required environment file exists before the key is generated.
-RUN cp .env.example .env
-
-# CORRECTED: Generate application key and cache configs for production as the root user.
-# This ensures that the application is fully configured and all cache files are
-# generated with the correct permissions before the user is switched.
-RUN php artisan key:generate \
-    && php artisan optimize:clear \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+# Generate the application key. This doesn't require a DB connection.
+RUN php artisan key:generate
 
 # Switch to the non-root user
 USER ${user}
+
 ############################################################
 # Stage 2: Final
 # This stage copies only the necessary production artifacts
@@ -70,8 +56,16 @@ ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Copy only the necessary files from the builder stage
+# Install supervisor and make it executable.
+RUN apk add --no-cache supervisor
+
+# Copy the necessary files from the builder stage, including vendor
 COPY --from=builder --chown=${user}:${user} /var/www/html /var/www/html
+
+# Copy the supervisor configuration and the start script.
+COPY dockerfiles/supervisord.conf /etc/supervisord.conf
+COPY dockerfiles/api.start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
@@ -80,10 +74,5 @@ USER ${user}
 # Expose the port for the PHP-FPM service
 EXPOSE 9000
 
-# Start the PHP-FPM server
-CMD ["php-fpm"]
-
-
-# Use a non-root user and supervisor to manage the PHP-FPM process
-# Supervisor is a good practice for production
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+# The CMD now executes the start.sh script
+CMD ["/usr/local/bin/start.sh"]
