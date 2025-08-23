@@ -38,7 +38,7 @@ COPY . .
 
 # Copy your composer.json and composer.lock to leverage Docker's layer caching.
 # This prevents re-installing dependencies on every code change.
-COPY composer.json composer.lock ./
+COPY api/composer.json api/composer.lock ./
 
 # Install Composer dependencies, skipping development packages (--no-dev).
 # This is a crucial step for a production-ready image.
