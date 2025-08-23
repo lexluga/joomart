@@ -33,11 +33,11 @@ services:
     volumes:
       - ../../api:/var/www/html
     env_file:
-      - ../../api/.env
+      - ../../api:/.env
     environment:
       MAILPIT_HOST: mailpit
       REDIS_HOST: redis
-      SERVICE_NAME: api
+      SERVICE_NAME: joomart-api
       SERVICE_TAGS: dev
     expose:
       - "9000"

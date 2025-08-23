@@ -3,7 +3,16 @@
 # This stage installs Composer dependencies and compiles the application.
 # It includes all the development tools we won't need in the final image.
 # ============================================
-FROM php:8.3-fpm AS builder
+FROM php:8.3-fpm-alpine AS builder
+
+# Set the working directory for the application
+WORKDIR /var/www/html
+
+# Create a non-root user and group for security
+# The 'adduser' command in Alpine automatically creates a group with the same name.
+ARG user=lex
+ARG uid=1000
+RUN adduser -D -u ${uid} ${user}
 
 # Install system dependencies necessary for the build process.
 # We'll install a minimal set of extensions in the final stage.
@@ -29,16 +38,15 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Copy the composer binary from the composer image.
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set the working directory for the application
-WORKDIR /var/www/html
-
-# Copy application source code.
-# The .dockerignore file should be used to exclude unnecessary files like node_modules.
-COPY . .
+# Copy the entire application source code
+COPY ./api/ /var/www/html/
 
 # Copy your composer.json and composer.lock to leverage Docker's layer caching.
 # This prevents re-installing dependencies on every code change.
 COPY api/composer.json api/composer.lock ./
+
+# Switch to the non-root user
+USER ${user}
 
 # Install Composer dependencies, skipping development packages (--no-dev).
 # This is a crucial step for a production-ready image.
@@ -51,59 +59,28 @@ RUN php artisan storage:link \
     && php artisan route:cache \
     && php artisan view:cache
 
-# ============================================
-# Stage 2: The Production Stage
-# This is a lean stage that only contains the production-ready code.
-# It uses a minimal PHP-FPM image and no build tools.
-# ============================================
+############################################################
+# Stage 2: Final
+# This stage copies only the necessary production artifacts
+# to a lean, final image for deployment.
+############################################################
 FROM php:8.3-fpm-alpine AS production
 
-# Arguments defined in docker-compose.yml for user creation.
-ARG user
-ARG uid
+# Create the same non-root user from the builder stage
+ARG user=lex
+ARG uid=1000
+RUN adduser -D -u ${uid} ${user}
 
-# Install only the system dependencies and PHP extensions needed at runtime.
-RUN apk add --no-cache \
-    bash \
-    oniguruma-dev \
-    libzip-dev \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    libwebp-dev \
-    freetype-dev \
-    && docker-php-ext-install -j$(nproc) \
-    pdo \
-    pdo_mysql \
-    mbstring \
-    exif \
-    zip \
-    pcntl \
-    bcmath \
-    gd \
-    && rm -rf /var/lib/apt/lists/*
+# Copy only the necessary files from the builder stage
+COPY --from=builder --chown=${user}:${user} /var/www/html /var/www/html
 
-# Create system user to run the application for better security.
-RUN addgroup -g 1000 -S $user && adduser -u $uid -S -G $user -D $user
-
-# Set working directory.
+# Set the working directory and user for the final container
 WORKDIR /var/www/html
+USER ${user}
 
-# Copy the application code from the 'builder' stage.
-# This includes the vendor directory with all the dependencies.
-COPY --from=builder /var/www/html .
-
-# Set permissions for storage and cache directories.
-RUN chown -R $user:$user /var/www/html \
-    && chown -R www-data:www-data /var/www/html/storage \
-    && chown -R www-data:www-data /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage \
-    && chmod -R 775 /var/www/html/bootstrap/cache
-
-# Set the user to the newly created non-root user.
-USER $user
-
-# Expose port 9000 for PHP-FPM.
+# Expose the port for the PHP-FPM service
 EXPOSE 9000
 
-# The command to start the PHP-FPM server.
+# Start the PHP-FPM server
 CMD ["php-fpm"]
+

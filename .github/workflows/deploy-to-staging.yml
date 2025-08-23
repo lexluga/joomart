@@ -138,7 +138,7 @@ jobs:
           # The file is the specific Dockerfile in the dockerfiles/ directory
           file: ./dockerfiles/Dockerfile.${{ matrix.service }}.prod
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.service }}:latest
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:latest
       - name: Notify build success
         run: |
           echo "Build and push for ${{ matrix.service }} successful!"
