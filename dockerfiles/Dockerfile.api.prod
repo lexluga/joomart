@@ -15,9 +15,17 @@ ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
 # Install system dependencies necessary for the build process.
-RUN apt-get update && apt-get install -y \
+# CORRECTED: Using apk instead of apt-get
+RUN apk add --no-cache \
     git \
     curl \
+    supervisor \
+    nginx \
+    npm \
+    make \
+    build-base \
+    autoconf \
+    g++ \
     zip \
     unzip
 
