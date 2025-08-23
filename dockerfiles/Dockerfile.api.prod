@@ -41,7 +41,7 @@ USER ${user}
 
 # Install Composer dependencies, skipping development packages (--no-dev).
 # This is a crucial step for a production-ready image.
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader --no-scripts --no-plugins
 
 # Run Laravel-specific commands to optimize for production.
 RUN php artisan storage:link \
