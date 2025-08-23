@@ -30,10 +30,10 @@ RUN docker-php-ext-install pdo pdo_mysql
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # EXPLICIT COPY: Copy the .env.example file
-COPY ./api/.env.example /var/www/html/.env.example
+COPY api/.env.example /var/www/html/.env.example
 
 # Copy the rest of the application source code
-COPY ./api/ /var/www/html/
+COPY api/ /var/www/html/
 
 # Install ALL composer dependencies.
 RUN composer install --optimize-autoloader --no-scripts --no-plugins
