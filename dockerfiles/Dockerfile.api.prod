@@ -34,7 +34,7 @@ COPY ./api/ /var/www/html/
 
 # Copy your composer.json and composer.lock to leverage Docker's layer caching.
 # This prevents re-installing dependencies on every code change.
-COPY api/composer.json api/composer.lock ./
+# COPY api/composer.json api/composer.lock ./
 
 # Install Composer dependencies, skipping development packages (--no-dev).
 # This is a crucial step for a production-ready image.
@@ -76,3 +76,7 @@ EXPOSE 9000
 # Start the PHP-FPM server
 CMD ["php-fpm"]
 
+
+# Use a non-root user and supervisor to manage the PHP-FPM process
+# Supervisor is a good practice for production
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]
