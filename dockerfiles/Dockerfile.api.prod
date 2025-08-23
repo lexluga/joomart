@@ -43,13 +43,13 @@ USER ${user}
 # This is a crucial step for a production-ready image.
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-plugins
 
-# Run Laravel-specific commands to optimize for production.
-RUN php artisan storage:link \
+# ADDED: Generate application key and cache configs for production
+# This ensures that the application is fully configured before building the final image.
+RUN php artisan key:generate \
     && php artisan optimize:clear \
     && php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
-
 ############################################################
 # Stage 2: Final
 # This stage copies only the necessary production artifacts
