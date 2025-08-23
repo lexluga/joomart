@@ -33,7 +33,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY ./api/ /var/www/html/
 
 # ADDED: Explicitly copy .env.example to ensure it's present.
-COPY ./api/.env.example /var/www/html/.env.example
+COPY api/.env.example /var/www/html/.env.example
 
 # Copy your composer.json and composer.lock to leverage Docker's layer caching.
 # This prevents re-installing dependencies on every code change.
