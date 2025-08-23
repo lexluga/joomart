@@ -34,11 +34,15 @@ COPY ./api/ /var/www/html/
 
 # Copy your composer.json and composer.lock to leverage Docker's layer caching.
 # This prevents re-installing dependencies on every code change.
-# COPY api/composer.json api/composer.lock ./
+COPY api/composer.json api/composer.lock ./
 
 # Install Composer dependencies, skipping development packages (--no-dev).
 # This is a crucial step for a production-ready image.
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-plugins
+
+# FIX: Copy .env.example to .env so key:generate has a file to write to.
+# This ensures the required environment file exists before the key is generated.
+RUN cp .env.example .env
 
 # CORRECTED: Generate application key and cache configs for production as the root user.
 # This ensures that the application is fully configured and all cache files are
