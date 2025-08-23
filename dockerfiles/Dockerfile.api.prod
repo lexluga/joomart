@@ -15,19 +15,11 @@ ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
 # Install system dependencies necessary for the build process.
-# We'll install a minimal set of extensions in the final stage.
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     zip \
-    unzip \
-    libzip-dev \
-    libonig-dev \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    locales \
-    && rm -rf /var/lib/apt/lists/*
+    unzip
 
 # Install necessary PHP extensions for the build stage.
 # We can use docker-php-ext-configure for some extensions.
