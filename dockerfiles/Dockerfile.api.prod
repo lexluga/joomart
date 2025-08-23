@@ -36,20 +36,21 @@ COPY ./api/ /var/www/html/
 # This prevents re-installing dependencies on every code change.
 COPY api/composer.json api/composer.lock ./
 
-# Switch to the non-root user
-USER ${user}
-
 # Install Composer dependencies, skipping development packages (--no-dev).
 # This is a crucial step for a production-ready image.
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-plugins
 
-# ADDED: Generate application key and cache configs for production
-# This ensures that the application is fully configured before building the final image.
+# CORRECTED: Generate application key and cache configs for production as the root user.
+# This ensures that the application is fully configured and all cache files are
+# generated with the correct permissions before the user is switched.
 RUN php artisan key:generate \
     && php artisan optimize:clear \
     && php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
+
+# Switch to the non-root user
+USER ${user}
 ############################################################
 # Stage 2: Final
 # This stage copies only the necessary production artifacts
