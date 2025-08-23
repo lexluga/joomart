@@ -14,26 +14,28 @@ ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Install system dependencies necessary for the build process.
-# CORRECTED: Using apk instead of apt-get
+# Install system dependencies needed for Laravel and PHP extensions
+# CORRECTED: Added GD dependencies (libjpeg-turbo-dev, libpng-dev, freetype-dev)
 RUN apk add --no-cache \
     git \
     curl \
     supervisor \
-    nginx \
-    npm \
     make \
     build-base \
     autoconf \
     g++ \
     zip \
-    unzip
+    unzip \
+    libjpeg-turbo-dev \
+    libpng-dev \
+    freetype-dev \
+    supervisor 
+# Supervisor is often used in production to manage processes
 
-# Install necessary PHP extensions for the build stage.
-# We can use docker-php-ext-configure for some extensions.
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd \
-    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath zip
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-jpeg=/usr/include --with-freetype=/usr/include \
+    && docker-php-ext-install -j$(nproc) gd pdo pdo_mysql opcache mbstring exif pcntl bcmath zip \
+    && docker-php-ext-enable opcache
 
 # Copy the composer binary from the composer image.
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
