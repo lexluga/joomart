@@ -1,61 +1,71 @@
-# ============================================
-# Stage 1: The Build Stage
-# This stage installs Composer dependencies and compiles the application.
-# It includes all the development tools we won't need in the final image.
-# ============================================
-FROM php:8.3-fpm AS builder
+# File: dockerfiles/Dockerfile.api.prod
 
-# Set the working directory for the application
+############################################################
+# Stage 1: Builder
+# This stage installs all dependencies, including dev dependencies,
+# and builds the application. It uses a larger base image.
+############################################################
+FROM php:8.3-fpm-alpine AS builder
+
+# Set the working directory inside the container
 WORKDIR /var/www/html
 
 # Create a non-root user and group for security
-# The 'adduser' command in Alpine automatically creates a group with the same name.
 ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Install system dependencies necessary for the build process.
-# We'll install a minimal set of extensions in the final stage.
-RUN apt-get update && apt-get install -y \
+# Install system dependencies needed for Laravel and PHP extensions
+RUN apk add --no-cache \
     git \
     curl \
+    supervisor \
     zip \
-    unzip
+    unzip 
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql 
+RUN docker-php-ext-install pdo pdo_mysql    
 
-# Copy the composer binary from the composer image.
+# Copy composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy the entire application source code
+# EXPLICIT COPY: Copy the .env.example file
+COPY /api/.env.example /var/www/html/.env.example
+
+# Copy the rest of the application source code
 COPY ./api/ /var/www/html/
 
-# Copy your composer.json and composer.lock to leverage Docker's layer caching.
-# This prevents re-installing dependencies on every code change.
-COPY api/composer.json api/composer.lock ./
+# Install ALL composer dependencies.
+RUN composer install --optimize-autoloader --no-scripts --no-plugins
+
+# Generate the application key. This doesn't require a DB connection.
+RUN php artisan key:generate
 
 # Switch to the non-root user
 USER ${user}
-
-# Install Composer dependencies, skipping development packages (--no-dev).
-# This is a crucial step for a production-ready image.
-RUN composer install --no-dev --optimize-autoloader
 
 ############################################################
 # Stage 2: Final
 # This stage copies only the necessary production artifacts
 # to a lean, final image for deployment.
 ############################################################
-FROM php:8.3-fpm-alpine AS final
+FROM php:8.3-fpm-alpine AS production
 
 # Create the same non-root user from the builder stage
 ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Copy only the necessary files from the builder stage
+# Install supervisor and make it executable.
+RUN apk add --no-cache supervisor
+
+# Copy the necessary files from the builder stage, including vendor
 COPY --from=builder --chown=${user}:${user} /var/www/html /var/www/html
+
+# Copy the supervisor configuration and the start script.
+COPY dockerfiles/supervisord.conf /etc/supervisord.conf
+COPY dockerfiles/api.start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
@@ -64,6 +74,5 @@ USER ${user}
 # Expose the port for the PHP-FPM service
 EXPOSE 9000
 
-# Start the PHP-FPM server
-CMD ["php-fpm"]
-
+# The CMD now executes the start.sh script
+CMD ["/usr/local/bin/start.sh"]
