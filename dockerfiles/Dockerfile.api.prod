@@ -35,6 +35,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Install ALL composer dependencies.
 RUN composer install --optimize-autoloader --no-scripts --no-plugins --no-dev
 
+COPY api/.env.example .env
+
 # Switch to the non-root user
 USER ${user}
 
@@ -63,6 +65,7 @@ RUN chmod +x /usr/local/bin/start.sh
 
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
+
 USER ${user}
 
 # Expose the port for the PHP-FPM service
