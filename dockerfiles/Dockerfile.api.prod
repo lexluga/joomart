@@ -10,6 +10,9 @@ FROM php:8.3-fpm-alpine AS builder
 # Set the working directory inside the container
 WORKDIR /var/www/html
 
+# Copy the rest of the application source code
+COPY api/. /var/www/html/
+
 # Create a non-root user and group for security
 ARG user=lex
 ARG uid=1000
@@ -29,11 +32,10 @@ RUN docker-php-ext-install pdo pdo_mysql
 # Copy composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy the rest of the application source code
-COPY ./api/ /var/www/html/
-
 # Install ALL composer dependencies.
 RUN composer install --optimize-autoloader --no-scripts --no-plugins
+
+COPY .env.example .env
 
 # Generate the application key. This doesn't require a DB connection.
 RUN php artisan key:generate
