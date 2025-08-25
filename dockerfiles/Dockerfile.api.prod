@@ -11,7 +11,7 @@ FROM php:8.3-fpm-alpine AS builder
 WORKDIR /var/www/html
 
 # Copy the rest of the application source code
-COPY api/. /var/www/html/
+COPY . /var/www/html/
 
 # Create a non-root user and group for security
 ARG user=lex
@@ -25,8 +25,7 @@ RUN apk add --no-cache \
     supervisor \
     zip \
     unzip \
-    icu-dev
-
+    icu-dev 
 # Clear cache
 RUN rm -rf /var/cache/apk/*
 
@@ -37,7 +36,7 @@ RUN docker-php-ext-install pdo pdo_mysql intl
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Install ALL composer dependencies.
-RUN composer install --optimize-autoloader --no-scripts --no-plugins --no-dev
+RUN composer install --optimize-autoloader --no-scripts --no-plugins 
 
 # Set permissions for the non-root user
 RUN chown -R ${user}:${user} /var/www/html
