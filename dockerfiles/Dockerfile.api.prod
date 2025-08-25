@@ -11,7 +11,7 @@ FROM php:8.3-fpm-alpine AS builder
 WORKDIR /var/www/html
 
 # Copy the rest of the application source code
-COPY . /var/www/html/
+COPY api/. /var/www/html/
 
 # Create a non-root user and group for security
 ARG user=lex
@@ -57,10 +57,6 @@ RUN chmod +x /usr/local/bin/start.sh
 
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
-
-# We need to copy the .env.example file from the builder stage
-# because the production stage's build context is empty.
-COPY --from=builder --chown=${user}:${user} /var/www/html/.env.example /var/www/html/.env
 
 USER ${user}
 
