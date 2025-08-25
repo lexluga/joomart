@@ -24,13 +24,14 @@ RUN apk add --no-cache \
     curl \
     supervisor \
     zip \
-    unzip 
+    unzip \
+    icu-dev
 
 # Clear cache
 RUN rm -rf /var/cache/apk/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql    
+RUN docker-php-ext-install pdo pdo_mysql intl
 
 # Copy composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
