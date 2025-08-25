@@ -37,7 +37,7 @@ services:
     volumes:
       - ../../api:/var/www/html
     env_file:
-      - ../../api:/.env
+      - ../../api/.env
     environment:
       REDIS_HOST: redis
       SERVICE_NAME: joomart-api
