@@ -38,9 +38,7 @@ services:
     container_name: joomart-api
     working_dir: /var/www/html
     volumes:
-      - ../../api/.env:/var/www/html/.env # Mount the .env file as read-only
-    env_file:
-      - ../../api/.env
+      - ../../api/.env:/var/www/html/.env
     environment:
       REDIS_HOST: redis
       SERVICE_NAME: joomart-api
@@ -54,7 +52,7 @@ services:
       - redis
     networks:
       - joomart-network
-      # Add a health check to ensure the service is ready before Nginx routes traffic.
+    # Add a health check to ensure the service is ready before Nginx routes traffic.
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9000 || exit 1"]
       interval: 30s
