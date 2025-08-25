@@ -26,6 +26,9 @@ RUN apk add --no-cache \
     zip \
     unzip 
 
+# Clear cache
+RUN rm -rf /var/cache/apk/*
+
 # Install PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql    
 
@@ -72,8 +75,10 @@ RUN chmod +x /usr/local/bin/start.sh
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
 
-# Correctly copy the .env.example from the build context (project root)
-COPY .env.example .env
+# We need to copy the .env.example file from the builder stage
+# because the production stage's build context is empty.
+COPY --from=builder --chown=${user}:${user} /var/www/html/.env.example /var/www/html/.env
+
 
 USER ${user}
 
