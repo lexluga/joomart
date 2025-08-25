@@ -7,37 +7,34 @@
 ############################################################
 FROM php:8.3-fpm-alpine AS builder
 
+# Set the working directory inside the container
 WORKDIR /var/www/html
 
-COPY . /var/www/html/
+# Copy the rest of the application source code
+COPY api/. /var/www/html/
 
+# Create a non-root user and group for security
 ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
+# Install system dependencies needed for Laravel and PHP extensions
 RUN apk add --no-cache \
     git \
     curl \
     supervisor \
     zip \
-    unzip \
-    icu-dev
+    unzip 
 
-RUN rm -rf /var/cache/apk/*
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_mysql    
 
-RUN docker-php-ext-install pdo pdo_mysql intl
-
+# Copy composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-RUN composer install --optimize-autoloader --no-scripts --no-plugins
 
-RUN chown -R ${user}:${user} /var/www/html
-
-RUN chmod +x /var/www/html/artisan && \
-    su -c "php /var/www/html/artisan key:generate" ${user}
-
+# Switch to the non-root user
 USER ${user}
-
 
 ############################################################
 # Stage 2: Final
