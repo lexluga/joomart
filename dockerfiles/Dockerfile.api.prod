@@ -11,7 +11,7 @@ FROM php:8.3-fpm-alpine AS builder
 WORKDIR /var/www/html
 
 # Copy the rest of the application source code
-COPY . /var/www/html/
+COPY api/. /var/www/html/
 
 # Create a non-root user and group for security
 ARG user=lex
@@ -24,30 +24,27 @@ RUN apk add --no-cache \
     curl \
     supervisor \
     zip \
-    unzip \
-    icu-dev 
-# Clear cache
-RUN rm -rf /var/cache/apk/*
+    unzip 
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql intl
+RUN docker-php-ext-install pdo pdo_mysql    
 
 # Copy composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Install ALL composer dependencies.
-RUN composer install --optimize-autoloader --no-scripts --no-plugins 
+RUN composer install --optimize-autoloader --no-scripts --no-plugins --no-dev
 
-# Set permissions for the non-root user
-RUN chown -R ${user}:${user} /var/www/html
+#Create system user to run Composer and Artisan Commands
+RUN useradd -G www-data,root -u $uid -d /home/$user $user
 
-# Run artisan commands, ensuring they have the correct permissions
-RUN chmod +x /var/www/html/artisan && \
-    su -c "php /var/www/html/artisan key:generate" ${user}
+#Set Permissions
+RUN mkdir -p /home/$user/.composer && \
+    chown -R $user:$user /home/$user
+
 
 # Switch to the non-root user
 USER ${user}
-
 
 ############################################################
 # Stage 2: Final
@@ -64,9 +61,6 @@ RUN adduser -D -u ${uid} ${user}
 # Install supervisor and make it executable.
 RUN apk add --no-cache supervisor
 
-# Copy the necessary files from the builder stage, including vendor
-COPY --from=builder --chown=${user}:${user} /var/www/html /var/www/html
-
 # Copy the supervisor configuration and the start script.
 COPY dockerfiles/supervisord.conf /etc/supervisord.conf
 COPY dockerfiles/api.start.sh /usr/local/bin/start.sh
@@ -78,7 +72,6 @@ WORKDIR /var/www/html
 # We need to copy the .env.example file from the builder stage
 # because the production stage's build context is empty.
 COPY --from=builder --chown=${user}:${user} /var/www/html/.env.example /var/www/html/.env
-
 
 USER ${user}
 
