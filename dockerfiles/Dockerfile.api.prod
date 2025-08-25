@@ -37,6 +37,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Install ALL composer dependencies.
 RUN composer install --optimize-autoloader --no-scripts --no-plugins
 
+RUN php artisan key:generate
+
 # Switch to the non-root user
 USER ${user}
 
