@@ -11,7 +11,7 @@ FROM php:8.3-fpm-alpine AS builder
 WORKDIR /var/www/html
 
 # Copy the rest of the application source code
-COPY api/. /var/www/html/
+COPY . /var/www/html/
 
 # Create a non-root user and group for security
 ARG user=lex
@@ -36,10 +36,15 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN composer install --optimize-autoloader --no-scripts --no-plugins --no-dev
 
 # Set permissions for the non-root user
-RUN php artisan key:generate
+RUN chown -R ${user}:${user} /var/www/html
+
+# Run artisan commands, ensuring they have the correct permissions
+RUN chmod +x /var/www/html/artisan && \
+    su -c "php /var/www/html/artisan key:generate" ${user}
 
 # Switch to the non-root user
 USER ${user}
+
 
 ############################################################
 # Stage 2: Final
@@ -66,6 +71,9 @@ RUN chmod +x /usr/local/bin/start.sh
 
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
+
+# Correctly copy the .env.example from the build context (project root)
+COPY .env.example .env
 
 USER ${user}
 

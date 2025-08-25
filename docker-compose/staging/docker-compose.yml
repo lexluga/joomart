@@ -31,11 +31,14 @@ services:
 
   #Laravel API Service
   api:
-    image: ghcr.io/lexluga/joomart-api:latest
+    # Use the 'build' directive to tell Docker Compose to use your local Dockerfile
+    build:
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.api.prod
     container_name: joomart-api
     working_dir: /var/www/html
     volumes:
-      - ../../api:/var/www/html
+      - ../../api/.env:/var/www/html/.env # Mount the .env file as read-only
     env_file:
       - ../../api/.env
     environment:
