@@ -11,7 +11,7 @@ FROM php:8.3-fpm-alpine AS builder
 WORKDIR /var/www/html
 
 # Copy the rest of the application source code
-COPY api/. /var/www/html/
+COPY . /var/www/html/
 
 # Create a non-root user and group for security
 ARG user=lex
@@ -31,7 +31,6 @@ RUN docker-php-ext-install pdo pdo_mysql
 
 # Copy composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
 
 # Switch to the non-root user
 USER ${user}
