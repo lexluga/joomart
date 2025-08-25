@@ -63,6 +63,8 @@ RUN chmod +x /usr/local/bin/start.sh
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
 
+COPY --from=builder --chown=${user}:${user} /var/www/html/.env.example /var/www/html/.env
+
 USER ${user}
 
 # Expose the port for the PHP-FPM service
