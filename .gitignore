@@ -34,3 +34,7 @@ yarn-error.log
 joomart_mysql_data/
 frontend_node_modules/
 backend_node_modules/
+
+#staging server configs
+/config/server/staging/*
+/config/server/production/*
