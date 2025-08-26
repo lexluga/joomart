@@ -58,9 +58,10 @@ RUN adduser -D -u ${uid} ${user}
 RUN apk add --no-cache supervisor
 
 # Copy the supervisor configuration and the start script.
-COPY config/server/prod/supervisord.conf /etc/supervisord.conf
+# COPY config/server/prod/supervisord.conf /etc/supervisord.conf
 # COPY config/server/prod/api.start.sh /usr/local/bin/api.start.sh
-RUN chmod +x /usr/local/bin/api.start.sh
+
+# RUN chmod +x /usr/local/bin/api.start.sh
 
 # Set the working directory and user for the final container
 WORKDIR /var/www/html
@@ -70,5 +71,5 @@ USER ${user}
 # Expose the port for the PHP-FPM service
 EXPOSE 9000
 
-# The CMD now executes the start.sh script
-CMD ["/usr/local/bin/api.start.sh"]
+# # The CMD now executes the api.start.sh script
+# CMD ["/usr/local/bin/api.start.sh"]
