@@ -129,7 +129,7 @@ services:
       - ../../config/mysql/.env.db
     environment:
       SERVICE_NAME: mysql
-      SERVICE_TAGS: dev
+      SERVICE_TAGS: staging
     networks:
       - joomart-network
 
