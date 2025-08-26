@@ -10,13 +10,13 @@ WORKDIR /app
 
 # Copy package.json and package-lock.json first to leverage Docker's layer caching.
 # This ensures that 'npm install' is not re-run on every code change.
-COPY frontend/package*.json ./
+COPY frontend/package*.json /app/
 
 # Install project dependencies
 RUN npm install
 
 # Copy all the application source code
-COPY frontend/. ./
+COPY frontend/. /app/
 
 # Build the Vue.js application for production
 # This command creates the 'dist' folder with static HTML, CSS, and JS files.
@@ -27,7 +27,7 @@ RUN npm run build
 # This stage is for serving the built application.
 # It is very lean and only contains Nginx and the static files.
 # ============================================
-FROM nginx:stable-alpine AS production-stage
+FROM nginx:alpine AS production-stage
 
 # Copy the custom Nginx configuration file from your local directory
 # to the Nginx container's configuration path.
