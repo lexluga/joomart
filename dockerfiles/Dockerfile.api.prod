@@ -59,7 +59,7 @@ RUN apk add --no-cache supervisor
 
 # Copy the supervisor configuration and the start script.
 COPY config/server/staging/supervisord.conf /etc/supervisord.conf
-COPY config/server/staging/api.start.sh /usr/local/bin/start.sh
+COPY config/server/staging/api.start.sh /usr/local/bin/api.start.sh
 RUN chmod +x /usr/local/bin/api.start.sh
 
 # Set the working directory and user for the final container
