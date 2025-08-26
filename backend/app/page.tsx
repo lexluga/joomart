@@ -21,7 +21,7 @@ export default function Home() {
             .
           </li>
           <li>Save and see your changes instantly (HMR Works) </li>
-          {/* test 1*/}
+          {/* Test */}
         </ol>
 
         <div className="flex gap-4 items-center flex-col sm:flex-row">
