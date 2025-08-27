@@ -18,6 +18,7 @@ dist/
 /backend/.env
 # Don't commit generated certificates
 /config/nginx/certs/*.pem      
+
 # Ignore MySQL data directory
 /config/mysql/.env.db
 
@@ -36,5 +37,3 @@ joomart_mysql_data/
 frontend_node_modules/
 backend_node_modules/
 
-#production server configs             
-# /config/server/*
