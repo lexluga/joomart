@@ -37,4 +37,4 @@ frontend_node_modules/
 backend_node_modules/
 
 #production server configs             
-/config/server/*
+# /config/server/*
