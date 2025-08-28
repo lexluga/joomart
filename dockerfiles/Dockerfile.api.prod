@@ -31,6 +31,12 @@ RUN apk add --no-cache --virtual .build-deps \
     docker-php-ext-install -j$(nproc) pdo pdo_mysql exif pcntl mbstring && \
     # Clean up the build dependencies to keep the image small
     apk del .build-deps
+
+# Ensure bootstrap/cache exists and is writable
+RUN mkdir -p /var/www/html/bootstrap/cache \
+    && chown -R ${user}:${user} /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/bootstrap/cache
+
 # Copy Composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy the entire application source code.
