@@ -27,19 +27,16 @@ RUN npm run build
 # This stage is for serving the built application.
 # It is very lean and only contains Nginx and the static files.
 # ============================================
-FROM nginx:alpine AS production-stage
-
-# Copy the custom Nginx configuration file from your local directory
-# to the Nginx container's configuration path.
-COPY config/nginx/staging/staging.joomart.xyz.conf /etc/nginx/conf.d/default.conf
-
+FROM caddy:2-alpine
+# The Caddyfile is a core part of the configuration. It must be copied to the container.
+# We are copying it from the source on our host machine.
+# The destination path /etc/caddy/Caddyfile is where Caddy expects to find it.
+COPY config/caddy/staging/Caddyfile /etc/caddy/Caddyfile
 # Copy the built files from the 'build-stage' into the Nginx server's
 # default public directory. This is the crucial step of the multi-stage build.
 COPY --from=build-stage /app/dist /usr/share/nginx/html
-
-# Expose port 80 for standard HTTP traffic
+# Caddy automatically handles HTTP to HTTPS redirects and keeps the container running,
+# so the Nginx-specific EXPOSE and CMD commands are no longer strictly necessary,
+# but can be kept for documentation purposes. Caddy will use these ports by default.
 EXPOSE 80
-
-# The CMD command runs Nginx in the foreground,
-# which is required for the Docker container to stay running.
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 443
