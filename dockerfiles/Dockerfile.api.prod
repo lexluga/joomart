@@ -2,57 +2,69 @@
 
 ############################################################
 # Stage 1: Builder
-# This stage installs all dependencies, including dev dependencies,
-# and builds the application. It uses a larger base image.
+# Installs Composer dependencies and builds the application.
 ############################################################
 FROM php:8.3-fpm-alpine AS builder
 
-# Set the working directory inside the container
+# Set the working directory
 WORKDIR /var/www/html
-
-# Copy the rest of the application source code
-COPY api/. /var/www/html/
-
-COPY api/.env.example /var/www/html/.env
 
 # Create a non-root user and group for security
 ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Install system dependencies needed for Laravel and PHP extensions
+# Install system dependencies needed for Laravel and Composer
 RUN apk add --no-cache \
     git \
-    curl \
+    unzip \
     supervisor \
     zip \
-    unzip 
+    libxml2-dev
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql    
+RUN docker-php-ext-install pdo pdo_mysql opcache exif pcntl mbstring
 
-# Copy composer binary from official image
+# Copy Composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install ALL composer dependencies.
-RUN composer install --optimize-autoloader --no-scripts --no-plugins
+# Copy the entire application source code.
+# This is done after installing dependencies to leverage Docker's layer caching.
+# If you only change a single source file, Docker doesn't need to re-run the `composer install` step.
+COPY api/. /var/www/html/
 
+# Install ALL composer dependencies.
+# The `--no-dev` flag is important here to prevent dev dependencies from being bundled.
+RUN composer install --no-dev --optimize-autoloader
+
+# Run artisan commands that are part of the build process.
+# This should be done here, as the `production` stage will not have PHP installed globally.
 RUN php artisan key:generate
+
+# Change ownership of the files to the non-root user
+RUN chown -R ${user}:${user} /var/www/html
 
 # Switch to the non-root user
 USER ${user}
 
 ############################################################
-# Stage 2: Final
-# This stage copies only the necessary production artifacts
-# to a lean, final image for deployment.
+# Stage 2: Final/Production
+# Copies only the necessary artifacts from the builder stage
+# and sets up the final running environment.
 ############################################################
 FROM php:8.3-fpm-alpine AS production
+
+# Set the working directory
+WORKDIR /var/www/html
 
 # Create the same non-root user from the builder stage
 ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
+
+# Copy the application source code and the installed vendor directory
+# from the builder stage. This is the crucial step.
+COPY --from=builder --chown=${user}:${user} /var/www/html /var/www/html
 
 # Install supervisor and make it executable.
 RUN apk add --no-cache supervisor
@@ -61,15 +73,11 @@ RUN apk add --no-cache supervisor
 COPY config/server/supervisord.conf /etc/supervisord.conf
 COPY config/server/api.start.sh /usr/local/bin/api.start.sh
 
+# Make the start script executable
 RUN chmod +x /usr/local/bin/api.start.sh
-
-# Set the working directory and user for the final container
-WORKDIR /var/www/html
-
-USER ${user}
 
 # Expose the port for the PHP-FPM service
 EXPOSE 9000
 
-# # The CMD now executes the api.start.sh script
+# The CMD now executes the api.start.sh script
 CMD ["/usr/local/bin/api.start.sh"]
