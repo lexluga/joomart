@@ -14,16 +14,24 @@ ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Install system dependencies needed for Laravel and Composer
+# Install system dependencies needed for Composer and PHP extensions
+# The '-dev' packages are crucial for building the PHP extensions
 RUN apk add --no-cache \
     git \
     unzip \
     supervisor \
     zip \
-    libxml2-dev
+    libxml2-dev \
+    # Dependencies for PHP extensions:
+    libzip-dev \
+    zlib-dev \
+    libpng-dev \
+    freetype-dev \
+    libonig-dev
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql opcache exif pcntl mbstring
+RUN docker-php-ext-install -j$(nproc) pdo pdo_mysql opcache exif pcntl mbstring
+
 
 # Copy Composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
