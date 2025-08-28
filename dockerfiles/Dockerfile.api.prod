@@ -14,8 +14,7 @@ ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Install core build dependencies and PHP extension dependencies in a single layer
-# We use a virtual package (.build-deps) to easily remove them later
+# We install all build dependencies, run the install commands, then remove the dependencies
 RUN apk add --no-cache --virtual .build-deps \
     git \
     unzip \
@@ -25,13 +24,18 @@ RUN apk add --no-cache --virtual .build-deps \
     libpng-dev \
     freetype-dev \
     libjpeg-turbo-dev \
-    libonig-dev && \
-    # Compile and install the required PHP extensions
-    docker-php-ext-install -j$(nproc) pdo pdo_mysql opcache exif pcntl mbstring && \
+    libonig-dev \
+    # The following are often needed for a successful build
+    mariadb-connector-c-dev \
+    oniguruma-dev \
+    # autoconf is often required for the phpize script to work
+    autoconf \
+    && \
+    # The -j$(nproc) flag parallelizes the build process for faster compilation
+    docker-php-ext-install -j$(nproc) pdo pdo_mysql exif pcntl mbstring && \
     # Clean up the build dependencies to keep the image small
     apk del .build-deps
 
-# Copy Composer binary from official image
 # Copy Composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy the entire application source code.
