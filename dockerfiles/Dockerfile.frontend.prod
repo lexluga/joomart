@@ -31,7 +31,7 @@ FROM caddy:2-alpine
 # The Caddyfile is a core part of the configuration. It must be copied to the container.
 # We are copying it from the source on our host machine.
 # The destination path /etc/caddy/Caddyfile is where Caddy expects to find it.
-COPY config/caddy/staging/Caddyfile /etc/caddy/Caddyfile
+COPY config/caddy/Caddyfile /etc/caddy/Caddyfile
 # Copy the built files from the 'build-stage' into the Nginx server's
 # default public directory. This is the crucial step of the multi-stage build.
 COPY --from=build-stage /app/dist /usr/share/nginx/html
