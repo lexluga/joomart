@@ -14,29 +14,22 @@ ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
 
-# Install core build dependencies and common tools
-RUN apk add --no-cache \
+# Install core build dependencies and PHP extension dependencies in one go
+RUN apk add --no-cache --virtual .build-deps \
     git \
     unzip \
-    supervisor \
-    zip \
-    libxml2-dev
-
-# Install dependencies required for specific PHP extensions
-# These packages are needed to compile the extensions
-RUN apk add --no-cache --virtual .build-deps \
+    libxml2-dev \
     libzip-dev \
     zlib-dev \
     libpng-dev \
     freetype-dev \
     libjpeg-turbo-dev \
-    libonig-dev \
-    && docker-php-ext-install -j$(nproc) pdo pdo_mysql opcache exif pcntl mbstring \
-    # The `apk del` command rem
+    libonig-dev && \
+    docker-php-ext-install -j$(nproc) pdo pdo_mysql opcache exif pcntl mbstring && \
+    apk del .build-dep
 
-
-    # Copy Composer binary from official image
-    COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Copy Composer binary from official image
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Copy the entire application source code.
 # This is done after installing dependencies to leverage Docker's layer caching.
