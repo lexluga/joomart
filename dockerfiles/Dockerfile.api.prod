@@ -7,7 +7,7 @@
 FROM php:8.3-fpm-alpine AS builder
 
 # Set the working directory
-WORKDIR /var/www/html
+WORKDIR /var/www/html/
 
 # Create a non-root user and group for security
 ARG user=lex
@@ -23,7 +23,7 @@ RUN apk add --no-cache \
     unzip 
 
 # Install PHP extensions
-RUN docker-php-ext-install -j$(nproc) pdo pdo_mysql opcache exif pcntl mbstring bcmath
+RUN docker-php-ext-install pdo pdo_mysql pcntl mbstring bcmath
 
 # Copy Composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
