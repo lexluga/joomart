@@ -1,25 +1,28 @@
 services:
-  #Nginx Web Server Service
-  webserver:
-    image: nginx:stable-alpine
-    container_name: joomart-nginx
+  #Caddy WebServer Service
+  caddy:
+    # Use the official Caddy image. We'll use the 'latest' tag for simplicity.
+    image: caddy:latest
+    container_name: joomart-caddy
     restart: unless-stopped
-    tty: true
     ports:
-      - "80:80" # HTTP port for redirection
-      - "443:443" # HTTPS port
+      # Expose both HTTP and HTTPS ports so Caddy can handle all traffic
+      # and perform automatic HTTPS certificate issuance.
+      - "80:80"
+      - "443:443"
     volumes:
-      # Mount the Nginx configuration.
-      - ../../config/nginx:/etc/nginx/conf.d
-      # Mount the SSL certificates.
-      - ../../config/nginx/certs:/etc/nginx/certs
-      # Mount the Vue app's production build from its build context.
-      # The path is now relative to the location of this compose file.
-      - ../../frontend/dist:/usr/share/nginx/html
-      # You can still mount the api public directory if you need it.
-      - ../../api/public:/var/www/html/public
+      # Mount the Caddyfile we just created. The `:ro` (read-only) flag is a good
+      # security practice since Caddy doesn't need to write to the config file.
+      - ../../config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # This volume is CRUCIAL. It persists the SSL certificates and other Caddy data.
+      # Without it, Caddy would re-issue certificates on every restart, which could
+      # cause you to hit Let's Encrypt rate limits.
+      - caddy_data:/data
+      # We still need to mount the frontend files for Caddy's `file_server` to access.
+      - ../../frontend/dist:/var/www/html
     depends_on:
-      # Use `service_healthy` to prevent Nginx from starting until dependencies are ready.
+      # It's good to ensure the Caddy container starts only after the application
+      # services are ready to receive requests.
       api:
         condition: service_healthy
       backend:
@@ -144,6 +147,8 @@ volumes:
   joomart_mysql_data:
   frontend_node_modules:
   backend_node_modules:
+  caddy_data:
+  # This volume is used to persist the Caddy data, including SSL certificates.
 
 networks:
   joomart-network:
