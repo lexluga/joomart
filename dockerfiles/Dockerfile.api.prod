@@ -48,6 +48,9 @@ COPY api/. /var/www/html/
 # The `--no-dev` flag is important here to prevent dev dependencies from being bundled.
 RUN composer install --no-dev --optimize-autoloader
 
+# Add this before running php artisan key:generate
+RUN if [ ! -f /var/www/html/.env ]; then cp /var/www/html/.env.example /var/www/html/.env; fi
+
 # Run artisan commands that are part of the build process.
 # This should be done here, as the `production` stage will not have PHP installed globally.
 RUN php artisan key:generate
