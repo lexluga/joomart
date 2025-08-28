@@ -1,5 +1,5 @@
 # Gitignore for the root of your project
-.env*
+# .env*
 *.env
 node_modules/
 vendor/

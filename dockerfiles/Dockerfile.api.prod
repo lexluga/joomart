@@ -40,7 +40,8 @@ RUN mkdir -p /var/www/html/bootstrap/cache \
 # Copy Composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy the entire application source code.
-# This is done after installing dependencies to leverage Docker's layer caching.
+# This is done after installing dependencies to leverage Docker's layer caching
+
 # If you only change a single source file, Docker doesn't need to re-run the `composer install` step.
 COPY api/. /var/www/html/
 
