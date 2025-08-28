@@ -35,7 +35,10 @@ services:
   #Laravel API Service
   api:
     # Use the 'build' directive to tell Docker Compose to use your local Dockerfile
-    image: ghcr.io/lexluga/joomart-api:latest
+    build:
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.api.prod
+    image: joomart-api
     container_name: joomart-api
     working_dir: /var/www/html
     volumes:
@@ -62,7 +65,10 @@ services:
 
   #Vue Frontend Service
   frontend:
-    image: ghcr.io/lexluga/joomart-frontend:latest
+    build:
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.frontend.prod
+    image: joomart-frontend
     container_name: joomart-vue-app
     restart: unless-stopped
     working_dir: /app
@@ -89,7 +95,10 @@ services:
 
   #NextJS Backend Service
   backend:
-    image: ghcr.io/lexluga/joomart-backend:latest
+    build:
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.backend.prod
+    image: joomart-backend
     container_name: joomart-nextjs-app
     restart: unless-stopped
     working_dir: /app
