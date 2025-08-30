@@ -42,7 +42,7 @@ services:
     container_name: joomart-api
     working_dir: /var/www/html
     volumes:
-      - "${GITHUB_WORKSPACE}/api/.env:/var/www/html/.env"
+      - "${GITHUB_WORKSPACE}/api/.env.example:/var/www/html/.env"
     environment:
       REDIS_HOST: redis
       SERVICE_NAME: joomart-api
