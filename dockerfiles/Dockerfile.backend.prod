@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Copy all the application source code into the container.
 # This assumes the Docker build command is run from the directory containing package.json.
-COPY . .
+COPY backend/. .
 
 # Install all dependencies (including dev)
 RUN npm install
@@ -28,7 +28,7 @@ FROM node:alpine AS runner
 WORKDIR /app
 
 # Next.js requires this variable to run in production mode
-ENV NODE_ENV=staging
+ENV NODE_ENV=production
 
 # Copy package.json from the builder stage
 COPY --from=builder /app/package*.json ./
