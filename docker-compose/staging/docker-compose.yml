@@ -92,6 +92,9 @@ services:
 
   #NextJS Backend Service
   backend:
+    build:
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.backend.prod
     image: ghcr.io/lexluga/joomart-backend:latest
     container_name: joomart-nextjs-app
     restart: unless-stopped
