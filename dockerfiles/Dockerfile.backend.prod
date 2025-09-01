@@ -6,7 +6,8 @@ FROM node:alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
-
+# Copy package.json and package-lock.json/yarn.lock from the 'backend' directory
+COPY backend/package*.json ./
 # Install all dependencies (including dev)
 RUN npm install
 
