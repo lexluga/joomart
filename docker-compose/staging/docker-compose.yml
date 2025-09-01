@@ -95,7 +95,7 @@ services:
     build:
       context: ../../
       dockerfile: dockerfiles/Dockerfile.backend.prod
-    image: ghcr.io/lexluga/joomart-backend:latest
+    image: joomart-backend:latest
     container_name: joomart-nextjs-app
     restart: unless-stopped
     working_dir: /app
