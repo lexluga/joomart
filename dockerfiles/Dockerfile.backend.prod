@@ -1,55 +1,62 @@
 # ============================================
 # Stage 1: The Build Stage
+# This stage installs all dependencies (including dev) and builds the Next.js app.
 # ============================================
 FROM node:alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy ALL source code into the working directory first
-COPY backend/. .
+# Copy all the application source code into the container.
+# This assumes the Docker build command is run from the directory containing package.json.
+COPY . .
 
 # Install all dependencies (including dev)
 RUN npm install
 
 # Build the Next.js application for production.
-# This command will now successfully create the '.next' directory.
+# This command creates the crucial '.next' directory.
 RUN npm run build
 
 # ============================================
 # Stage 2: The Production Stage (Runner)
+# This stage installs only the production dependencies for a lean image.
 # ============================================
 FROM node:alpine AS runner
 
 # Set the working directory
 WORKDIR /app
 
-# The environment variable is a crucial part of the Next.js production setup.
+# Next.js requires this variable to run in production mode
 ENV NODE_ENV=staging
 
-# Copy the package files from the build stage to install production dependencies
+# Copy package.json from the builder stage
 COPY --from=builder /app/package*.json ./
 
-# Install only production dependencies. Using `npm ci` ensures a clean, predictable install.
+# Install only production dependencies. `npm ci` ensures a clean install.
 RUN npm ci --only=production
 
 # ============================================
 # Stage 3: The Final Stage
-# This is the final, lean image.
+# This is the final, lean image containing the built app and prod dependencies.
 # ============================================
 FROM node:alpine AS final
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the build output and necessary files from previous stages
+# Copy the built app from the builder stage
 COPY --from=builder /app/.next ./.next
+
+# Copy the production node_modules from the runner stage
 COPY --from=runner /app/node_modules ./node_modules
+
+# Copy the public assets and package.json
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 
-# Expose port 5000 internally as per your Caddy configuration
+# Expose port 5000 internally
 EXPOSE 5000
 
-# The command to start the Next.js application in production mode
+# The command to start the production Next.js application
 CMD ["npm", "run", "start"]
