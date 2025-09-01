@@ -35,9 +35,6 @@ services:
   #Laravel API Service
   api:
     # Use the 'build' directive to tell Docker Compose to use your local Dockerfile
-    build:
-      context: ../../
-      dockerfile: dockerfiles/Dockerfile.api.prod
     image: ghcr.io/lexluga/joomart-api:latest
     container_name: joomart-api
     working_dir: /var/www/html
@@ -92,9 +89,6 @@ services:
 
   #NextJS Backend Service
   backend:
-    build:
-      context: ../../
-      dockerfile: dockerfiles/Dockerfile.backend.prod
     image: ghcr.io/lexluga/joomart-backend:latest
     container_name: joomart-nextjs-app
     restart: unless-stopped
@@ -103,7 +97,7 @@ services:
       - ../../backend:/app
       - backend_node_modules:/app/node_modules
     environment:
-      NEXT_PUBLIC_API_URL: https://admin.staging.joomart.xyz
+      NEXT_PUBLIC_API_URL: https://api.staging.joomart.xyz
       NEXT_PUBLIC_FRONTEND_URL:
         https://staging.joomart.xyz
         # Ensure your Next.js dev server expects the protocol as HTTPS if it's strictly enforced by Nginx

@@ -3,7 +3,6 @@
 # This stage installs all dependencies (including dev) and builds the Next.js app.
 # ============================================
 FROM node:alpine AS builder
-
 # Set the working directory inside the container
 WORKDIR /app
 # Copy package.json and package-lock.json/yarn.lock from the 'backend' directory
@@ -30,7 +29,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Copy package.json from the builder stage
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package*.json .
 
 # Install only production dependencies. `npm ci` ensures a clean install.
 RUN npm ci --only=production
