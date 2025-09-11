@@ -21,7 +21,7 @@ dist/
 
 # Ignore MySQL data directory
 /config/mysql/.env.db
-
+/config/mysql/.env.staging.db
 
 .DS_Store
 npm-debug.log

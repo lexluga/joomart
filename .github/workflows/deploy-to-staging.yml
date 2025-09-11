@@ -138,6 +138,8 @@ jobs:
           # The file is the specific Dockerfile in the dockerfiles/ directory
           file: ./dockerfiles/Dockerfile.${{ matrix.service }}.prod
           push: true
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache,mode=max
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:staging
             ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:latest
@@ -153,8 +155,11 @@ jobs:
     # This conditional has been updated to be more flexible.
     # It now triggers on a push to main or a pull request to staging.
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'staging')
+      needs.build-and-push.result == 'success' &&
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'pull_request' && github.base_ref == 'staging')
+      )
     runs-on: self-hosted # This requires a self-hosted runner on your VPS
     steps:
       - name: Checkout code
@@ -171,14 +176,28 @@ jobs:
       - name: Create .env.staging.db file
         run: |
           mkdir -p config/mysql/
-          echo "${{ secrets.MYSQL_ENV_FILE }}" > config/mysql/.env.staging.db
+          echo "${{ secrets.MYSQL_ENV_FILE }}" > /tmp/.env.staging.db
+          cat <<EOF > config/mysql/.env.staging.db
+          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+          MYSQL_USER=${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+          EOF
 
       - name: Deploy services to staging
         # Tell the step to run from the root of the repository
         working-directory: ${{ github.workspace }}
         run: |
-          docker compose -f docker-compose/staging/docker-compose.yml pull
+          docker compose -f docker-compose/staging/docker-compose.yml pull --ignore-pull-failures
           docker compose -f docker-compose/staging/docker-compose.yml up -d --remove-orphans
+
+      - name: Wait for healthy services
+        run: |
+          for service in api backend frontend db redis; do
+            echo "⏳ Waiting for $service..."
+            timeout 120 sh -c "until [ \$(docker inspect --format='{{.State.Health.Status}}' joomart-${service}-staging 2>/dev/null || echo starting) = 'healthy' ]; do sleep 5; done"
+            echo "✅ $service is healthy"
+          done
       - name: Notify deployment success
         run: |
           echo "Deployment to staging successful!"
