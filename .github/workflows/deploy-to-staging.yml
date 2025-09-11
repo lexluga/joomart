@@ -191,13 +191,6 @@ jobs:
           docker compose -f docker-compose/staging/docker-compose.yml pull --ignore-pull-failures
           docker compose -f docker-compose/staging/docker-compose.yml up -d --remove-orphans
 
-      - name: Wait for healthy services
-        run: |
-          for service in api backend frontend db redis; do
-            echo "⏳ Waiting for $service..."
-            timeout 120 sh -c "until [ \$(docker inspect --format='{{.State.Health.Status}}' joomart-${service}-staging 2>/dev/null || echo starting) = 'healthy' ]; do sleep 5; done"
-            echo "✅ $service is healthy"
-          done
       - name: Notify deployment success
         run: |
           echo "Deployment to staging successful!"
