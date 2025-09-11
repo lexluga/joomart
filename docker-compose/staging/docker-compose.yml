@@ -61,7 +61,7 @@ services:
   #Vue Frontend Service
   frontend:
     image: ghcr.io/lexluga/joomart-frontend:staging
-    container_name: joomart-vue-app:staging
+    container_name: joomart-vue-app-staging
     restart: unless-stopped
     working_dir: /var/www/html
     environment:
@@ -85,7 +85,7 @@ services:
   #NextJS Backend Service
   backend:
     image: ghcr.io/lexluga/joomart-backend:staging
-    container_name: joomart-nextjs-app:staging
+    container_name: joomart-nextjs-app-staging
     restart: unless-stopped
     working_dir: /app
     environment:
@@ -111,7 +111,7 @@ services:
   #Database Service
   db:
     image: mysql:8.0
-    container_name: joomart-db:staging
+    container_name: joomart-db-staging
     restart: unless-stopped
     expose:
       - "3306"
@@ -135,7 +135,7 @@ services:
   #Redis Cache Service
   redis:
     image: redis:alpine
-    container_name: joomart-redis-cache:staging
+    container_name: joomart-redis-cache-staging
     expose:
       - "6379"
     networks:
