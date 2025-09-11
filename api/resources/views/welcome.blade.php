@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    {{-- Test 1 --}}
+    {{-- Test  --}}
 
     <title> Joomart API </title>
     <meta name="description" content="Joomart API - The open and free API for all things Joomart.">
