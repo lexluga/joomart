@@ -1,14 +1,11 @@
 # File: dockerfiles/Dockerfile.api.prod
-
 ############################################################
 # Stage 1: Builder
 # Installs Composer dependencies and builds the application.
 ############################################################
 FROM php:8.3-fpm-alpine AS builder
-
 # Set the working directory
 WORKDIR /var/www/html/
-
 # Create a non-root user and group for security
 ARG user=lex
 ARG uid=1000
@@ -31,68 +28,57 @@ RUN apk add --no-cache --virtual .build-deps \
     docker-php-ext-install -j$(nproc) pdo pdo_mysql exif pcntl mbstring && \
     # Clean up the build dependencies to keep the image small
     apk del .build-deps
-
 # Ensure bootstrap/cache exists and is writable
 RUN mkdir -p /var/www/html/bootstrap/cache \
     && chown -R ${user}:${user} /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/bootstrap/cache
-
 # Copy Composer binary from official image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy the entire application source code.
-# This is done after installing dependencies to leverage Docker's layer caching
-
-# If you only change a single source file, Docker doesn't need to re-run the `composer install` step.
-COPY api/. /var/www/html/
-
+# Copy only composer files first (better caching)
+COPY api/composer.json api/composer.lock /var/www/html/
 # Install ALL composer dependencies.
 # The `--no-dev` flag is important here to prevent dev dependencies from being bundled.
-RUN composer install --no-dev --optimize-autoloader
-
-# Add this before running php artisan key:generate
-RUN if [ ! -f /var/www/html/.env ]; then cp /var/www/html/.env.example /var/www/html/.env; fi
-
-# Run artisan commands that are part of the build process.
-# This should be done here, as the `production` stage will not have PHP installed globally.
-RUN php artisan key:generate
-
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress -vvv || cat /var/www/html/vendor/composer/installed.json
+# Install dependencies for the application
+COPY api/. .
+# Run any application-specific build steps here
+# For Laravel, we can cache the config, routes, and views for better performance
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
 # Change ownership of the files to the non-root user
 RUN chown -R ${user}:${user} /var/www/html
-
 # Switch to the non-root user
 USER ${user}
-
 ############################################################
 # Stage 2: Final/Production
 # Copies only the necessary artifacts from the builder stage
 # and sets up the final running environment.
 ############################################################
 FROM php:8.3-fpm-alpine AS production
-
 # Set the working directory
 WORKDIR /var/www/html
-
 # Create the same non-root user from the builder stage
 ARG user=lex
 ARG uid=1000
 RUN adduser -D -u ${uid} ${user}
-
+# Install only the necessary PHP extensions for production
+RUN docker-php-ext-install pdo pdo_mysql
+# Install bash and curl for health checks
+RUN apk add --no-cache bash curl
 # Copy the application source code and the installed vendor directory
 # from the builder stage. This is the crucial step.
 COPY --from=builder --chown=${user}:${user} /var/www/html /var/www/html
-
-# Install supervisor and make it executable.
-RUN apk add --no-cache supervisor
-
-# Copy the supervisor configuration and the start script.
-COPY config/server/supervisord.conf /etc/supervisord.conf
-COPY config/server/api.start.sh /usr/local/bin/api.start.sh
-
-# Make the start script executable
-RUN chmod +x /usr/local/bin/api.start.sh
-
+# We ensure the storage/logs directory exists and is writable.
+RUN mkdir -p /var/www/html/storage/logs \
+    && chown -R ${user}:${user} /var/www/html/storage/logs
+# copy entrypoint
+COPY config/server/entrypoint.prod.sh /usr/local/bin/entrypoint.prod.sh
+RUN chmod +x /usr/local/bin/entrypoint.prod.sh
 # Expose the port for the PHP-FPM service
 EXPOSE 9000
-
-# The CMD now executes the api.start.sh script
-CMD ["/usr/local/bin/api.start.sh"]
+# Switch to the non-root user
+USER ${user}
+# Use the custom entrypoint script to handle migrations and other startup tasks safely
+ENTRYPOINT ["entrypoint.prod.sh"]

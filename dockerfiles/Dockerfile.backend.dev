@@ -3,12 +3,10 @@ FROM node:alpine AS builder
 # make the directory where the project files will be stored
 # set it as the working directory so that we don't need to keep referencing it
 WORKDIR /app
-
 # Copy package.json and package-lock.json/yarn.lock from the 'backend' directory
 # The source path 'backend/package.json' is relative to the build context (project root)
 COPY backend/package*.json ./
 # Use package-lock.json if you use npm, or yarn.lock if you use yarn
-
 # install project dependencies
 RUN npm install
 # copy project files 

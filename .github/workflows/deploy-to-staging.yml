@@ -165,10 +165,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create .env.db file
+      - name: Create .env.staging.db file
         run: |
           mkdir -p config/mysql/
-          echo "${{ secrets.MYSQL_ENV_FILE }}" > config/mysql/.env.db
+          echo "${{ secrets.MYSQL_ENV_FILE }}" > config/mysql/.env.staging.db
 
       - name: Deploy services to staging
         # Tell the step to run from the root of the repository

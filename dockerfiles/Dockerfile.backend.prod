@@ -2,7 +2,7 @@
 # Stage 1: The Build Stage
 # This stage installs all dependencies (including dev) and builds the Next.js app.
 # ============================================
-FROM node:alpine AS builder
+FROM node:24-alpine AS builder
 # Set the working directory inside the container
 WORKDIR /app
 # Copy package.json and package-lock.json/yarn.lock from the 'backend' directory
@@ -20,29 +20,27 @@ RUN npm run build
 # Stage 2: The Production Stage (Runner)
 # This stage installs only the production dependencies for a lean image.
 # ============================================
-FROM node:alpine AS runner
-
+FROM node:24-alpine AS runner
 # Set the working directory
 WORKDIR /app
-
 # Next.js requires this variable to run in production mode
 ENV NODE_ENV=production
-
 # Copy package.json from the builder stage
 COPY --from=builder /app/package*.json .
-
 # Install only production dependencies. `npm ci` ensures a clean install.
 RUN npm ci --only=production
-
+# Install curl for health checks
+RUN apk add --no-cache curl
 # ============================================
 # Stage 3: The Final Stage
 # This is the final, lean image containing the built app and prod dependencies.
 # ============================================
-FROM node:alpine AS final
-
+FROM node:24-alpine AS final
 # Set the working directory
 WORKDIR /app
-
+# Next.js requires this variable to run in production mode
+RUN apk add --no-cache curl
+ENV NODE_ENV=production
 # Copy the built app from the builder stage
 COPY --from=builder /app/.next ./.next
 # Copy the production node_modules from the runner stage
@@ -51,9 +49,8 @@ COPY --from=builder /app/.next/static ./.next/static
 # Copy the public assets and package.json
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
-
 # Expose port 5000 internally
-EXPOSE 5000
+EXPOSE 3000
 
 # The command to start the production Next.js application
 CMD ["npm", "run", "start"]

@@ -1,0 +1,66 @@
+# This is an improved Caddyfile with logging enabled for the Joomart staging environment
+
+## SPA Frontend (Vue.js) - Handles staging.joomart.xyz
+
+staging.joomart.xyz {
+    root * /var/www/html
+    try_files {path} {path}/ /index.html
+
+    handle /api/* {
+        rewrite * /index.php{uri}
+        php_fastcgi api:9000
+    }
+
+    file_server
+    
+    log {
+        format json
+        output stdout
+        output file /var/log/caddy/access.log {
+            roll_size 10mb
+        }
+
+        level INFO
+        output file /var/log/caddy/error.log {
+            roll_size 10mb
+        }       
+        level ERROR
+    }
+    
+    header /assets/* Cache-Control "public, max-age=31536000, immutable"
+}
+
+## API (Laravel) - Handles api.staging.joomart.xyz
+
+api.staging.joomart.xyz {
+    encode gzip zstd
+
+    root * /var/www/html/public
+    
+    # Serve static files directly
+    file_server
+    
+    # Fallback to index.php for Laravel routes
+    try_files {path} /index.php{uri} {uri}/ /index.php?{query}  
+
+    # Handle PHP (Laravel bootstrap)
+    php_fastcgi api:9000
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+## BACKEND (Next.js) - Handles admin.staging.joomart.xyz
+
+admin.staging.joomart.xyz {
+    reverse_proxy http://backend:3000
+    
+    log {
+        output stdout
+        format console
+    }
+}
+
+## END OF FILE

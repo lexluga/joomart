@@ -4,39 +4,34 @@
 # It will have all the necessary Node.js tools and dependencies.
 # ============================================
 FROM node:alpine AS build-stage
-
 # Set the working directory inside the container
 WORKDIR /app
-
 # Copy package.json and package-lock.json first to leverage Docker's layer caching.
 # This ensures that 'npm install' is not re-run on every code change.
 COPY frontend/package*.json /app/
-
 # Install project dependencies
 RUN npm install
-
 # Copy all the application source code
 COPY frontend/. /app/
-
 # Build the Vue.js application for production
 # This command creates the 'dist' folder with static HTML, CSS, and JS files.
 RUN npm run build
-
 # ============================================
 # Stage 2: The Production Stage
 # This stage is for serving the built application.
 # It is very lean and only contains Nginx and the static files.
 # ============================================
-FROM caddy:2-alpine
-# The Caddyfile is a core part of the configuration. It must be copied to the container.
-# We are copying it from the source on our host machine.
-# The destination path /etc/caddy/Caddyfile is where Caddy expects to find it.
-COPY config/caddy/Caddyfile /etc/caddy/Caddyfile
-# Copy the built files from the 'build-stage' into the Nginx server's
-# default public directory. This is the crucial step of the multi-stage build.
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-# Caddy automatically handles HTTP to HTTPS redirects and keeps the container running,
-# so the Nginx-specific EXPOSE and CMD commands are no longer strictly necessary,
-# but can be kept for documentation purposes. Caddy will use these ports by default.
-EXPOSE 80
-EXPOSE 443
+FROM node:alpine AS production
+# Set the working directory
+WORKDIR /app        
+# Install curl for health checks
+RUN apk add --no-cache curl
+# Copy the built application from the build stage
+COPY --from=build-stage /app/dist /var/www/html
+COPY --from=build-stage /app/public /var/www/html/public
+# Install serve to serve the static files
+RUN npm install -g serve
+# Expose port 5173 to the outside world
+EXPOSE 5173
+# Command to run the application using 'serve'
+CMD ["serve", "-s", "/var/www/html", "-l", "5173"]

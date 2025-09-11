@@ -10,6 +10,9 @@ use App\Http\Controllers\Api\Auth\RegisterController;
 require_once __DIR__ . '/api/v1.php';
 require_once __DIR__ . '/api/v2.php';
 
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok'], 200);
+});
 
 // Test comment to trigger CI
 Route::prefix('auth')->group(function () {
