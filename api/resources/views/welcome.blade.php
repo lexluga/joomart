@@ -2,15 +2,17 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
 <head>
+    {{-- Test 2 --}}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    {{-- Test 2 --}}
 
     <title> Joomart API </title>
     <meta name="description" content="Joomart API - The open and free API for all things Joomart.">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,600&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg" href="{{ asset('favicon.svg') }}">
 
     <!-- Styles -->
     <style>
@@ -901,6 +903,7 @@
             }
         }
     </style>
+
 </head>
 
 <body class="font-sans antialiased dark:bg-black dark:text-white/50">

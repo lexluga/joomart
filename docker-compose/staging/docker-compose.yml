@@ -35,6 +35,8 @@ services:
     image: ghcr.io/lexluga/joomart-api:staging
     container_name: joomart-api-staging
     working_dir: /var/www/html
+    volumes:
+      - ../../api:/var/www/html
     env_file:
       - ../../api/.env.staging
     environment:
