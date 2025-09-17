@@ -32,7 +32,10 @@ services:
   #Laravel API Service
   api:
     # Use the 'build' directive to tell Docker Compose to use your local Dockerfile
-    image: ghcr.io/lexluga/joomart-api:staging
+    build:
+      context: ../../
+      dockerfile: dockerfiles/Dockerfile.api.prod
+    image: joomart-api
     container_name: joomart-api-staging
     working_dir: /var/www/html
     volumes:
