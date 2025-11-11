@@ -11,6 +11,7 @@ services:
     volumes:
       - ../../config/nginx/dev:/etc/nginx/conf.d:ro # Read-only mount for Nginx configs
       - ../../config/nginx/certs:/etc/nginx/certs:ro # Mount the SSL certificates
+      - ../../config/nginx/auth:/etc/nginx/auth:ro
       - ../../api/public:/var/www/html/public:ro # <--- ADD THIS LINE: Mount Laravel's public directory
     depends_on:
       - api
@@ -126,8 +127,8 @@ services:
       PMA_HOST: db
       SERVICE_NAME: phpmyadmin
       SERVICE_TAGS: dev
-    ports:
-      - 8082:80
+    expose:
+      - "80"
     depends_on:
       - db
     networks:
@@ -137,9 +138,9 @@ services:
   mailpit:
     image: "axllent/mailpit:latest"
     container_name: joomart-mail
-    ports:
-      - "${FORWARD_MAILPIT_PORT:-1025}:1025"
-      - "${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025"
+    expose:
+      - "1025"
+      - "8025"
     networks:
       - joomart-network
 
