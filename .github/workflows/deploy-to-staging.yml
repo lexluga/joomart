@@ -1,8 +1,6 @@
-# .github/workflows/deploy-to-staging.yml
 name: Joomart Monorepo Staging CI/CD Pipeline
 
 # This workflow will run on push to main, or on pull requests to either main or staging.
-# This ensures that all CI steps (building, testing) run for every proposed change.
 on:
   push:
     branches:
@@ -25,8 +23,7 @@ env:
 
 jobs:
   # The 'determine-changes' job identifies which services have been modified
-  # in the current commit or pull request. This is a critical step for
-  # optimizing monorepo CI/CD pipelines.
+  # in the current commit or pull request.
   determine-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -74,7 +71,6 @@ jobs:
           done
 
           # Manually build the JSON strings to ensure there is no extra whitespace.
-          # This is the most reliable method for this type of task.
           services_string=""
           buildable_string=""
 
@@ -104,14 +100,11 @@ jobs:
           echo "Debug: services output is [$services_string]"
           echo "Debug: buildable_services output is [$buildable_string]"
 
-  # The 'build-and-push' job builds a Docker image for each affected service
-  # and pushes it to the GitHub Container Registry (GHCR).
+  # The 'build-and-push' job now performs Build, Security Scan, and Push for each affected service.
   build-and-push:
     needs: determine-changes
     # This conditional is crucial: only run this job if the buildable services array is not empty
-    # Use a direct string comparison to avoid potential parsing issues
     if: needs.determine-changes.outputs.buildable_services != '[]'
-    # Use the JSON output from the previous job to dynamically define the matrix
     strategy:
       matrix:
         # We now use the filtered list of services that are actually buildable.
@@ -131,30 +124,60 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push ${{ matrix.service }} image
+      # 1. Build and LOAD the image locally for scanning (DO NOT PUSH YET)
+      - name: Build and Load ${{ matrix.service }} image for scanning
         uses: docker/build-push-action@v6
         with:
-          # The context is the root of the monorepo
           context: .
-          # The file is the specific Dockerfile in the dockerfiles/ directory
           file: ./dockerfiles/Dockerfile.${{ matrix.service }}.prod
-          push: true
+          # Use a temporary local tag for scanning
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:scan-temp
+          load: true # <-- Loads the image into the Docker daemon for Trivy to use
+          target: production
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache,mode=max
+
+      # 2. Run Trivy Vulnerability Scan (THE QUALITY GATE)
+      - name: Run Trivy vulnerability scanner on ${{ matrix.service }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          # Scan the temporary local image
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:scan-temp
+          format: "table"
+          exit-code: "1" # CRITICAL: This ensures the step fails if vulnerabilities are found
+          ignore-unfixed: true # Only look for vulnerabilities with known fixes
+          severity: "CRITICAL,HIGH" # Only fail on these severity levels
+          output: "trivy-results-${{ matrix.service }}.sarif"
+
+      # 3. Push the image to the Registry (Only runs if the scan passed)
+      - name: Push ${{ matrix.service }} image to Registry
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./dockerfiles/Dockerfile.${{ matrix.service }}.prod
+          push: true # <-- Now we push, as the scan passed
+          # Reuse tags defined in the original workflow
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:staging
             ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:${{ github.sha }}
+          target: production # Ensure the correct target is used for the push
+
+      # 4. Upload Trivy results to GitHub Security tab
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results-${{ matrix.service }}.sarif"
+
       - name: Notify build success
         run: |
-          echo "Build and push for ${{ matrix.service }} successful!"
+          echo "Build, Scan, and Push for ${{ matrix.service }} successful!"
 
   # The 'deploy-to-staging' job is responsible for deploying the latest images
-  # to your staging environment. It will now run on a push to 'main' or a PR to 'staging'.
+  # to your staging environment.
   deploy-to-staging:
     needs: build-and-push
     # This conditional has been updated to be more flexible.
-    # It now triggers on a push to main or a pull request to staging.
     if: |
       needs.build-and-push.result == 'success' &&
       (
