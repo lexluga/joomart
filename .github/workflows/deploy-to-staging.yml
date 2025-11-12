@@ -140,7 +140,7 @@ jobs:
       # 2. Run Trivy Vulnerability Scan (THE QUALITY GATE)
       - name: Run Trivy vulnerability scanner on ${{ matrix.service }}
         id: trivy
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           # Scan the temporary local image
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:scan-temp
