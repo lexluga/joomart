@@ -176,6 +176,34 @@ jobs:
         with:
           sarif_file: "trivy-results-${{ matrix.service }}.sarif"
 
+      # 4. Push the image to the Registry (Only runs if the scan passed)
+      - name: Push ${{ matrix.service }} image to Registry
+        # The quality gate: only push if the Trivy step succeeded (meaning no CRITICAL/HIGH found)
+        if: steps.trivy_report.outcome == 'success'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./dockerfiles/Dockerfile.${{ matrix.service }}.prod
+          push: true
+          # REMOVED: target: production
+          # Reuse tags defined in the original workflow
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:staging
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache,mode=max
+
+      - name: Notify build status
+        run: |
+          if [ "${{ steps.trivy_report.outcome }}" == "success" ]; then
+            echo "Build, Scan, and Push for ${{ matrix.service }} successful!"
+          else
+            echo "Build and Scan for ${{ matrix.service }} FAILED due to critical/high vulnerabilities. Image NOT pushed."
+            # We explicitly fail the job here to ensure the downstream 'deploy-to-staging' job is skipped.
+            exit 1
+          fi
+
   # The 'deploy-to-staging' job is responsible for deploying the latest images
   # to your staging environment.
   deploy-to-staging:
