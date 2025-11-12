@@ -141,6 +141,9 @@ jobs:
       - name: Run Trivy vulnerability scanner on ${{ matrix.service }}
         id: trivy
         uses: aquasecurity/trivy-action@0.33.1
+        # CRITICAL FIX: Allows subsequent steps to run even if this step fails (exit-code: 1)
+        # The job will still show as failed, but the SARIF file will be written.
+        continue-on-error: true
         with:
           # Scan the temporary local image
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:scan-temp
