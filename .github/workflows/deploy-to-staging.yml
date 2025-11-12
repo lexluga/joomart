@@ -88,7 +88,7 @@ jobs:
                 buildable_string+="\"$service\""
               fi
             done
-            
+
             echo "services=[$services_string]" >> $GITHUB_OUTPUT
             echo "buildable_services=[$buildable_string]" >> $GITHUB_OUTPUT
           else
@@ -139,15 +139,16 @@ jobs:
 
       # 2. Run Trivy Vulnerability Scan (THE QUALITY GATE)
       - name: Run Trivy vulnerability scanner on ${{ matrix.service }}
-        uses: aquasecurity/trivy-action@master
+        id: trivy
+        uses: aquasecurity/trivy-action@v1
         with:
           # Scan the temporary local image
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:scan-temp
-          format: "table"
-          exit-code: "1" # CRITICAL: This ensures the step fails if vulnerabilities are found
+          format: "sarif"
+          output: "trivy-results-${{ matrix.service }}.sarif"
+          exit-code: 1 # CRITICAL: This ensures the step fails if vulnerabilities are found
           ignore-unfixed: true # Only look for vulnerabilities with known fixes
           severity: "CRITICAL,HIGH" # Only fail on these severity levels
-          output: "trivy-results-${{ matrix.service }}.sarif"
 
       # 3. Push the image to the Registry (Only runs if the scan passed)
       - name: Push ${{ matrix.service }} image to Registry
@@ -162,9 +163,12 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:${{ github.sha }}
           target: production # Ensure the correct target is used for the push
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache,mode=max
 
-      # 4. Upload Trivy results to GitHub Security tab
+      # 4. Upload Trivy results to GitHub Security tab (always run so results appear even if scan found issues)
       - name: Upload Trivy scan results to GitHub Security tab
+        if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results-${{ matrix.service }}.sarif"
