@@ -153,32 +153,28 @@ jobs:
           ignore-unfixed: true # Only look for vulnerabilities with known fixes
           severity: "CRITICAL,HIGH" # Only fail on these severity levels
 
-      # 3. Push the image to the Registry (Only runs if the scan passed)
-      - name: Push ${{ matrix.service }} image to Registry
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./dockerfiles/Dockerfile.${{ matrix.service }}.prod
-          push: true # <-- Now we push, as the scan passed
-          # Reuse tags defined in the original workflow
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:staging
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:latest
-            ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:${{ github.sha }}
-          target: production # Ensure the correct target is used for the push
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache,mode=max
+        # --- FILE PERSISTENCE FIX ---
+      # This step explicitly checks if the SARIF file was created and sets an output variable.
+      # This addresses the race condition where the Trivy step fails before writing the file.
+      - name: Verify SARIF File Existence
+        id: check_file
+        run: |
+          SARIF_FILE="trivy-results-${{ matrix.service }}.sarif"
+          if [ -f "$SARIF_FILE" ]; then
+            echo "::notice::SARIF file found: $SARIF_FILE"
+            echo "file_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::SARIF file NOT found: $SARIF_FILE. Upload will be skipped, but deployment gate remains active."
+            echo "file_exists=false" >> $GITHUB_OUTPUT
+          fi
 
-      # 4. Upload Trivy results to GitHub Security tab (always run so results appear even if scan found issues)
+      # 3. Upload Trivy results to GitHub Security tab
+      # We now conditionally run this only if the file was verified to exist.
       - name: Upload Trivy scan results to GitHub Security tab
-        if: always()
+        if: always() && steps.check_file.outputs.file_exists == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results-${{ matrix.service }}.sarif"
-
-      - name: Notify build success
-        run: |
-          echo "Build, Scan, and Push for ${{ matrix.service }} successful!"
 
   # The 'deploy-to-staging' job is responsible for deploying the latest images
   # to your staging environment.
