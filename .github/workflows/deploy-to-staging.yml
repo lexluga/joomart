@@ -133,29 +133,28 @@ jobs:
           # Use a temporary local tag for scanning
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:scan-temp
           load: true # <-- Loads the image into the Docker daemon for Trivy to use
-          target: production
+          # REMOVED: target: production
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:buildcache,mode=max
 
-      # 2. Run Trivy Vulnerability Scan (THE QUALITY GATE)
+      # 2. Run Trivy Vulnerability Scanner (THE QUALITY GATE)
       - name: Run Trivy vulnerability scanner on ${{ matrix.service }}
-        id: trivy
+        id: trivy_report
         uses: aquasecurity/trivy-action@0.33.1
-        # CRITICAL FIX: Allows subsequent steps to run even if this step fails (exit-code: 1)
-        # The job will still show as failed, but the SARIF file will be written.
+        # CRITICAL FIX: We keep continue-on-error: true to allow the next steps to run
+        # even if Trivy finds vulnerabilities and exits with code 1.
         continue-on-error: true
         with:
           # Scan the temporary local image
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/joomart-${{ matrix.service }}:scan-temp
           format: "sarif"
           output: "trivy-results-${{ matrix.service }}.sarif"
-          exit-code: 1 # CRITICAL: This ensures the step fails if vulnerabilities are found
-          ignore-unfixed: true # Only look for vulnerabilities with known fixes
-          severity: "CRITICAL,HIGH" # Only fail on these severity levels
+          exit-code: 1 # This fails the step if CRITICAL/HIGH vulnerabilities are found
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
 
-        # --- FILE PERSISTENCE FIX ---
+      # --- FILE PERSISTENCE FIX ---
       # This step explicitly checks if the SARIF file was created and sets an output variable.
-      # This addresses the race condition where the Trivy step fails before writing the file.
       - name: Verify SARIF File Existence
         id: check_file
         run: |
